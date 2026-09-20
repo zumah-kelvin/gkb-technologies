@@ -355,7 +355,7 @@ export default function GKBTechnologiesApp() {
                     <div>
                       <div className="text-xs font-mono text-cyan-400 uppercase tracking-wider">Direct Lines</div>
                       <a href="tel:+233552117787" className="text-slate-200 font-mono text-sm hover:text-cyan-300 block">+233 55 211 7787</a>
-                      <a href="tel:+256905290" className="text-slate-200 font-mono text-sm hover:text-cyan-300 block">+256 90 5290</a>
+                      <a href="tel:+233256905290" className="text-slate-200 font-mono text-sm hover:text-cyan-300 block">+233 25 690 5290</a>
                     </div>
                   </div>
                 </div>
