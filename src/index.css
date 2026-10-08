@@ -56,25 +56,45 @@
 }
 
 .theme-light [class~="text-slate-500"] {
-  color: #64748b !important;
+  color: #475569 !important;
 }
 
 .theme-light [class~="text-cyan-300"],
-.theme-light [class~="text-cyan-400"] {
-  color: #0e7490 !important;
+.theme-light [class~="text-cyan-400"],
+.theme-light [class~="text-cyan-400/70"] {
+  color: #0c5666 !important;
 }
 
 .theme-light [class~="text-purple-300"],
 .theme-light [class~="text-purple-400"] {
-  color: #7e22ce !important;
+  color: #6b21a8 !important;
 }
 
 .theme-light [class~="text-emerald-400"] {
-  color: #047857 !important;
+  color: #065f46 !important;
+}
+
+.theme-light [class~="text-emerald-300"] {
+  color: #065f46 !important;
 }
 
 .theme-light [class~="text-amber-400"] {
-  color: #a16207 !important;
+  color: #713f12 !important;
+}
+
+.theme-light [class~="text-red-300"],
+.theme-light [class~="text-red-400"] {
+  color: #991b1b !important;
+}
+
+.theme-light [class~="text-pink-400"] {
+  color: #9d174d !important;
+}
+
+.theme-light [class~="text-transparent"] {
+  color: #0f172a !important;
+  -webkit-text-fill-color: #0f172a !important;
+  background-image: none !important;
 }
 
 .theme-light [class~="border-slate-800"] {

@@ -216,7 +216,7 @@ export default function GKBSite() {
     ));
 
   return (
-    <div className={`min-h-screen bg-slate-950 text-slate-100 font-sans selection:bg-cyan-500 selection:text-black relative overflow-x-hidden ${isLightMode ? 'theme-light' : ''}`}>
+    <div className={`min-h-screen flex flex-col bg-slate-950 text-slate-100 font-sans selection:bg-cyan-500 selection:text-black relative overflow-x-hidden ${isLightMode ? 'theme-light' : ''}`}>
       
       {/* Background Cyberpunk Grid & Glows */}
       <div className={`absolute inset-0 bg-[linear-gradient(to_right,#1e1b4b15_1px,transparent_1px),linear-gradient(to_bottom,#1e1b4b15_1px,transparent_1px)] bg-[size:4rem_4rem] pointer-events-none ${isLightMode ? 'hidden' : ''}`}></div>
@@ -292,7 +292,7 @@ export default function GKBSite() {
       </header>
 
       {/* Main Content Sections */}
-      <main className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+      <main className="relative z-10 w-full flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
 
         {/* ================= ABOUT US TAB ================= */}
         {activeTab === 'about' && (
@@ -747,6 +747,23 @@ export default function GKBSite() {
         )}
 
       </main>
+
+      <footer className="relative z-10 border-t border-cyan-500/20">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-slate-400">
+          <div className="text-center sm:text-left">
+            <p className="font-semibold text-slate-300">GKB Technologies</p>
+            <p className="mt-1 text-xs">© {new Date().getFullYear()} GKB Technologies. All rights reserved.</p>
+          </div>
+          <nav aria-label="Footer navigation" className="flex items-center gap-5">
+            <button type="button" onClick={() => setActiveTab('about')} className="transition-colors hover:text-cyan-300">
+              About Us
+            </button>
+            <button type="button" onClick={() => setActiveTab('contact')} className="transition-colors hover:text-cyan-300">
+              Contact Us
+            </button>
+          </nav>
+        </div>
+      </footer>
 
       {/* LOGIN MODAL OVERLAY */}
       {loginModalOpen && (
