@@ -3,7 +3,7 @@ import {
   Cpu, Shield, Smartphone, Wrench, Phone, Mail, Globe, Camera,
   User, Lock, LogOut, PlusCircle, CheckCircle, AlertTriangle,
   Send, Server, Terminal, Activity, Layers, ArrowRight, CheckSquare, Square,
-  Sun, Moon, Zap, Wifi, Radio, Gauge, BatteryCharging
+  Sun, Moon, Zap, Wifi, Radio, Gauge, BatteryCharging, Lightbulb
 } from 'lucide-react';
 
 type ServiceType = 'student-projects' | 'retail-gadgets';
@@ -564,6 +564,7 @@ function PrepaidEnergyMeterDashboard({ mode }: { mode: 'test' | 'service' }) {
   const lowBalance = balance < 11;
   const safetyCutoff = balance <= 0 || tamperState !== 'secure';
   const relayActual = relayRequested && !safetyCutoff;
+  const bulbPower = relayActual ? 60 : 0;
   const securityLabel = tamperState === 'detected'
     ? 'Tampering detected'
     : tamperState === 'maintenance'
@@ -695,8 +696,8 @@ function PrepaidEnergyMeterDashboard({ mode }: { mode: 'test' | 'service' }) {
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
           {[
             { name: 'Voltage', value: '230.4', unit: 'V', icon: Zap, color: 'text-amber-300' },
-            { name: 'Current', value: '2.18', unit: 'A', icon: Activity, color: 'text-cyan-300' },
-            { name: 'Power', value: '482', unit: 'W', icon: Gauge, color: 'text-purple-300' },
+            { name: 'Current', value: relayActual ? '0.26' : '0.00', unit: 'A', icon: Activity, color: 'text-cyan-300' },
+            { name: 'Power', value: String(bulbPower), unit: 'W', icon: Gauge, color: 'text-purple-300' },
             { name: 'Energy', value: '18.42', unit: 'kWh', icon: BatteryCharging, color: 'text-emerald-300' },
             { name: 'Frequency', value: '50.0', unit: 'Hz', icon: Activity, color: 'text-blue-300' },
             { name: 'Power factor', value: '0.96', unit: 'PF', icon: Zap, color: 'text-pink-300' }
@@ -717,6 +718,18 @@ function PrepaidEnergyMeterDashboard({ mode }: { mode: 'test' | 'service' }) {
           <div>
             <h3 className="font-semibold text-white">Power control</h3>
             <p className="mt-1 text-xs text-slate-400">Relay commands are simulated and do not control a physical load.</p>
+          </div>
+          <div className={`flex flex-col items-center justify-center gap-3 rounded-xl border p-5 text-center transition-colors sm:flex-row sm:justify-start sm:text-left ${relayActual ? 'border-amber-400/30 bg-amber-400/[0.06]' : 'border-slate-800 bg-slate-950/70'}`}>
+            <span className={`flex h-16 w-16 items-center justify-center rounded-full transition-all ${relayActual ? 'bg-amber-300/15 text-amber-300 shadow-[0_0_30px_rgba(252,211,77,0.3)]' : 'bg-slate-800 text-slate-500'}`}>
+              <Lightbulb aria-hidden="true" className={`h-9 w-9 transition-all ${relayActual ? 'fill-amber-200/40 drop-shadow-[0_0_10px_rgba(252,211,77,0.85)]' : ''}`} />
+            </span>
+            <div>
+              <p className="font-semibold text-white">Demo bulb load</p>
+              <p className={`mt-1 text-sm font-bold ${relayActual ? 'text-amber-300' : 'text-slate-400'}`}>
+                {relayActual ? 'ON · 60 W simulated output' : 'OFF · 0 W output'}
+              </p>
+              <p className="mt-1 text-xs text-slate-500">The bulb follows the simulated relay state.</p>
+            </div>
           </div>
           <div className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-slate-800 bg-slate-950/70 p-4">
             <div>
