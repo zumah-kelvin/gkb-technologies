@@ -7,7 +7,7 @@ import {
 } from 'lucide-react';
 
 type ServiceType = 'student-projects' | 'retail-gadgets';
-type StudentProject = 'fuel-tank-monitor' | 'water-tank-monitor' | 'prepaid-energy-meter' | 'alcohol-breathalyzer' | 'smart-fan-light';
+type StudentProject = 'fuel-tank-monitor' | 'water-tank-monitor' | 'prepaid-energy-meter' | 'alcohol-breathalyzer' | 'fan-regulator' | 'light-control';
 
 type UserType = {
   role: 'admin' | 'client';
@@ -30,7 +30,8 @@ const defaultDevices: Device[] = [
   { id: 3, name: 'Industrial Fuel Tank Monitor', key: 'GKB-IUFT-0001', status: 'Online', lastAlert: 'Fuel level stable at 72%', project: 'fuel-tank-monitor' },
   { id: 4, name: 'GKB Smart Prepaid Energy Meter', key: 'GKB-SPEM-0001', status: 'Online', lastAlert: 'Meter secure · balance GHS 24.50', project: 'prepaid-energy-meter' },
   { id: 5, name: 'Smart Alcohol Breathalyzer System', key: 'GKB-SAB-0001', status: 'Online', lastAlert: 'Alcohol level clear · demo', project: 'alcohol-breathalyzer' },
-  { id: 6, name: 'Smart Fan and Light Control System', key: 'GKB-SFLC-0001', status: 'Online', lastAlert: 'Fan off · light off · demo', project: 'smart-fan-light' }
+  { id: 6, name: 'Smart Fan Regulator', key: 'GKB-FAN-0001', legacyKeys: ['GKB-SFLC-0001'], status: 'Online', lastAlert: 'Fan off · all speed relays open · demo', project: 'fan-regulator' },
+  { id: 7, name: 'Smart Light Control System', key: 'GKB-LIGHT-0001', status: 'Online', lastAlert: 'All lights off · demo', project: 'light-control' }
 ];
 
 type Complaint = {
@@ -769,18 +770,17 @@ function AlcoholBreathalyzerDashboard({ mode }: { mode: 'test' | 'service' }) {
   );
 }
 
-type FanLightActivity = {
+type DeviceControlActivity = {
   id: string;
   event: string;
   timestamp: string;
 };
 
-function SmartFanLightDashboard({ mode }: { mode: 'test' | 'service' }) {
+function FanRegulatorDashboard({ mode }: { mode: 'test' | 'service' }) {
   const [fanSpeed, setFanSpeed] = useState(0);
-  const [lightOn, setLightOn] = useState(false);
   const [connectionAvailable, setConnectionAvailable] = useState(true);
-  const [activity, setActivity] = useState<FanLightActivity[]>([
-    { id: 'initial-state', event: 'System ready · fan off · light off', timestamp: 'Just now' }
+  const [activity, setActivity] = useState<DeviceControlActivity[]>([
+    { id: 'initial-state', event: 'Fan regulator ready · fan off · all speed relays open', timestamp: 'Just now' }
   ]);
   const speedLabel = fanSpeed === 0 ? 'Off' : `Speed ${fanSpeed}`;
   const speedDescription = ['Off', 'Low', 'Medium-low', 'Medium-high', 'High'][fanSpeed];
@@ -794,23 +794,17 @@ function SmartFanLightDashboard({ mode }: { mode: 'test' | 'service' }) {
 
   const changeFanSpeed = (speed: number) => {
     setFanSpeed(speed);
-    recordActivity(`Fan set to ${speed === 0 ? 'OFF' : `Speed ${speed}`} · fan-speed=${speed}`);
-  };
-
-  const toggleLight = () => {
-    const next = !lightOn;
-    setLightOn(next);
-    recordActivity(`Room light switched ${next ? 'ON' : 'OFF'} · light=${next ? 1 : 0}`);
+    recordActivity(`Fan set to ${speed === 0 ? 'OFF' : `Speed ${speed}`} · fan-speed=${speed} · relay ${speed === 0 ? 'all OFF' : `${speed} ON, others OFF`}`);
   };
 
   const toggleConnection = () => {
     const next = !connectionAvailable;
     setConnectionAvailable(next);
-    recordActivity(`ESP32 demo connection ${next ? 'restored' : 'lost'} · Adafruit IO and Supabase ${next ? 'syncing' : 'disconnected'}`);
+    recordActivity(`ESP32 demo connection ${next ? 'restored' : 'lost'} · Adafruit IO ${next ? 'connected' : 'disconnected'}`);
   };
 
   return (
-    <section aria-labelledby="smart-fan-light-title" className="space-y-5">
+    <section aria-labelledby="fan-regulator-title" className="space-y-5">
       <style>{`
         @keyframes gkb-fan-rotate {
           to { transform: rotate(360deg); }
@@ -831,8 +825,8 @@ function SmartFanLightDashboard({ mode }: { mode: 'test' | 'service' }) {
               Simulated controls
             </span>
           </div>
-          <h2 id="smart-fan-light-title" className="text-xl font-bold text-white sm:text-2xl">Smart Fan and Light Control System</h2>
-          <p className="mt-1 text-sm text-slate-400">ESP32 room control · fan-speed and light feeds</p>
+          <h2 id="fan-regulator-title" className="text-xl font-bold text-white sm:text-2xl">Smart Fan Regulator</h2>
+          <p className="mt-1 text-sm text-slate-400">ESP32 speed control · one relay assigned to each fan speed</p>
         </div>
         <div className="flex flex-wrap gap-2">
           <span className="inline-flex items-center gap-2 rounded-lg border border-emerald-500/20 bg-emerald-500/5 px-3 py-2 text-xs font-semibold text-emerald-300">
@@ -922,54 +916,34 @@ function SmartFanLightDashboard({ mode }: { mode: 'test' | 'service' }) {
           </div>
         </section>
 
-        <section aria-label="Room light control" className="flex flex-col justify-between rounded-2xl border border-slate-800 bg-slate-900/70 p-5 sm:p-6">
-          <div>
-            <div className="flex items-center justify-between gap-4">
-              <div>
-                <p className="text-xs font-medium uppercase tracking-wider text-slate-400">Room lighting</p>
-                <p className={`mt-1 text-2xl font-bold ${lightOn ? 'text-amber-300' : 'text-slate-300'}`}>{lightOn ? 'Light ON' : 'Light OFF'}</p>
-                <p className="mt-1 text-sm text-slate-400">light feed: {lightOn ? 1 : 0}</p>
-              </div>
-              <div className={`flex h-24 w-24 items-center justify-center rounded-full transition-all duration-500 ${lightOn ? 'animate-pulse bg-amber-300/15 text-amber-300 shadow-[0_0_30px_rgba(252,211,77,0.2)]' : 'bg-slate-950/70 text-slate-600'}`}>
-                <Lightbulb aria-hidden="true" className={`h-14 w-14 transition-all duration-500 ${lightOn ? 'fill-amber-200/40 drop-shadow-[0_0_12px_rgba(252,211,77,0.8)]' : ''}`} />
-              </div>
-            </div>
-            <div className={`mt-6 flex items-center justify-between gap-4 rounded-xl border p-4 ${lightOn ? 'border-amber-400/20 bg-amber-400/[0.04]' : 'border-slate-800 bg-slate-950/60'}`}>
-              <div>
-                <p className="font-semibold text-white">Light switch</p>
-                <p className="mt-1 text-xs text-slate-400">Toggle room light · light={lightOn ? 1 : 0}</p>
-              </div>
-              <button
-                type="button"
-                role="switch"
-                aria-label="Room light"
-                aria-checked={lightOn}
-                onClick={toggleLight}
-                className={`relative h-8 w-14 shrink-0 rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 ${lightOn ? 'bg-amber-400' : 'bg-slate-700'}`}
-              >
-                <span className={`absolute top-1 h-6 w-6 rounded-full bg-white shadow transition-transform ${lightOn ? 'translate-x-7' : 'translate-x-1'}`} />
-              </button>
-            </div>
-          </div>
-          <div className="mt-5 grid gap-3 sm:grid-cols-2">
-            <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-3">
-              <p className="text-xs text-slate-400">Fan output · simulated</p>
-              <p className="mt-1 text-sm font-semibold text-cyan-300">{speedLabel}</p>
-            </div>
-            <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-3">
-              <p className="text-xs text-slate-400">Light output · simulated</p>
-              <p className={`mt-1 text-sm font-semibold ${lightOn ? 'text-amber-300' : 'text-slate-300'}`}>{lightOn ? 'ON' : 'OFF'}</p>
-            </div>
+        <section aria-label="Fan speed relay mapping" className="rounded-2xl border border-slate-800 bg-slate-900/70 p-5 sm:p-6">
+          <h3 className="font-semibold text-white">Speed relay mapping</h3>
+          <p className="mt-1 text-xs text-slate-400">One relay per speed; only the selected speed relay is energized.</p>
+          <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
+            {[1, 2, 3, 4].map(speed => (
+              <article key={speed} className={`rounded-xl border p-3 ${fanSpeed === speed ? 'border-cyan-400/30 bg-cyan-400/[0.06]' : 'border-slate-800 bg-slate-950/60'}`}>
+                <p className="text-xs text-slate-400">Relay {speed} · Speed {speed}</p>
+                <p className={`mt-1 text-sm font-semibold ${fanSpeed === speed ? 'text-cyan-300' : 'text-slate-500'}`}>
+                  {fanSpeed === speed ? 'ON · selected' : 'OFF'}
+                </p>
+              </article>
+            ))}
+            <article className={`rounded-xl border p-3 ${fanSpeed === 0 ? 'border-slate-600 bg-slate-800/50' : 'border-slate-800 bg-slate-950/60'}`}>
+              <p className="text-xs text-slate-400">All relays</p>
+              <p className={`mt-1 text-sm font-semibold ${fanSpeed === 0 ? 'text-slate-200' : 'text-slate-500'}`}>
+                {fanSpeed === 0 ? 'OFF · fan stopped' : 'OFF · fan running'}
+              </p>
+            </article>
           </div>
         </section>
       </div>
 
       <div className="grid gap-5 lg:grid-cols-2">
-        <section aria-label="Fan and light activity history" className="rounded-2xl border border-slate-800 bg-slate-900/70 p-5 sm:p-6">
+        <section aria-label="Fan activity history" className="rounded-2xl border border-slate-800 bg-slate-900/70 p-5 sm:p-6">
           <div className="flex items-center justify-between gap-3">
             <div>
               <h3 className="font-semibold text-white">Activity & command history</h3>
-              <p className="mt-1 text-xs text-slate-400">Recent fan-speed, light, and connectivity changes</p>
+              <p className="mt-1 text-xs text-slate-400">Recent fan-speed and connectivity changes</p>
             </div>
             <Activity className="h-5 w-5 text-cyan-300" />
           </div>
@@ -983,10 +957,10 @@ function SmartFanLightDashboard({ mode }: { mode: 'test' | 'service' }) {
           </ul>
         </section>
 
-        <section aria-label="Fan and light connection health" className="rounded-2xl border border-slate-800 bg-slate-900/70 p-5 sm:p-6">
+        <section aria-label="Fan regulator connection health" className="rounded-2xl border border-slate-800 bg-slate-900/70 p-5 sm:p-6">
           <div>
             <h3 className="font-semibold text-white">Connection & system health</h3>
-            <p className="mt-1 text-xs text-slate-400">ESP32 communication and cloud sync · demo status</p>
+            <p className="mt-1 text-xs text-slate-400">ESP32 communication and Adafruit IO · demo status</p>
           </div>
           <div className="mt-4 grid gap-3 sm:grid-cols-3">
             {[
@@ -1013,7 +987,209 @@ function SmartFanLightDashboard({ mode }: { mode: 'test' | 'service' }) {
       </div>
 
       <p role="status" className="rounded-xl border border-amber-500/20 bg-amber-500/5 px-4 py-3 text-xs leading-relaxed text-amber-200">
-        {mode === 'test' ? 'Test dashboard:' : 'Service portal preview:'} Fan speed, light switch, activity history, ESP32 connection, Adafruit IO, and Supabase indicators are simulated. The dashboard does not connect to cloud services or control physical appliances.
+        {mode === 'test' ? 'Test dashboard:' : 'Service portal preview:'} Fan speed, relay states, activity history, ESP32 connection, and Adafruit IO status are simulated. The dashboard does not connect to cloud services or control physical appliances.
+      </p>
+    </section>
+  );
+}
+
+type ControlledLight = {
+  id: number;
+  relays: boolean[];
+};
+
+function LightControlDashboard({ mode }: { mode: 'test' | 'service' }) {
+  const [lights, setLights] = useState<ControlledLight[]>([{ id: 1, relays: [false] }]);
+  const [connectionAvailable, setConnectionAvailable] = useState(true);
+  const [activity, setActivity] = useState<DeviceControlActivity[]>([
+    { id: 'initial-light-state', event: 'Light controller ready · all lights off', timestamp: 'Just now' }
+  ]);
+
+  const recordActivity = (event: string) => {
+    setActivity(current => [
+      { id: `${Date.now()}-${Math.random()}`, event, timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) },
+      ...current
+    ].slice(0, 8));
+  };
+
+  const addLight = () => {
+    const id = Math.max(0, ...lights.map(light => light.id)) + 1;
+    setLights(current => [...current, { id, relays: [false] }]);
+    recordActivity(`Light ${id} added with Relay 1 · off`);
+  };
+
+  const setRelayCount = (lightId: number, count: number) => {
+    setLights(current => current.map(light => {
+      if (light.id !== lightId) return light;
+      const relays = Array.from({ length: count }, (_, index) => light.relays[index] ?? false);
+      return { ...light, relays };
+    }));
+    recordActivity(`Light ${lightId} configured with ${count} relay${count === 1 ? '' : 's'}`);
+  };
+
+  const toggleRelay = (lightId: number, relayIndex: number) => {
+    setLights(current => current.map(light => (
+      light.id === lightId
+        ? { ...light, relays: light.relays.map((isOn, index) => index === relayIndex ? !isOn : isOn) }
+        : light
+    )));
+    const currentLight = lights.find(light => light.id === lightId);
+    const nextState = !currentLight?.relays[relayIndex];
+    recordActivity(`Light ${lightId} Relay ${relayIndex + 1} switched ${nextState ? 'ON' : 'OFF'} · relay${relayIndex + 1}=${nextState ? 1 : 0}`);
+  };
+
+  const toggleConnection = () => {
+    const next = !connectionAvailable;
+    setConnectionAvailable(next);
+    recordActivity(`ESP32 demo connection ${next ? 'restored' : 'lost'} · Adafruit IO and Supabase ${next ? 'syncing' : 'disconnected'}`);
+  };
+
+  return (
+    <section aria-labelledby="light-control-title" className="space-y-5">
+      <header className="flex flex-col gap-4 rounded-2xl border border-amber-500/20 bg-slate-900/80 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
+        <div>
+          <div className="mb-2 flex flex-wrap items-center gap-2">
+            <span className="rounded-full border border-cyan-400/30 bg-cyan-400/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.18em] text-cyan-300">
+              {mode === 'test' ? 'Private device test preview' : 'Service portal'}
+            </span>
+            <span className="rounded-full border border-amber-400/30 bg-amber-400/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-amber-300">
+              Simulated controls
+            </span>
+          </div>
+          <h2 id="light-control-title" className="text-xl font-bold text-white sm:text-2xl">Smart Light Control System</h2>
+          <p className="mt-1 text-sm text-slate-400">Configure independent relay outputs for each light</p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <span className={`inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-semibold ${connectionAvailable ? 'border-emerald-500/20 bg-emerald-500/5 text-emerald-300' : 'border-amber-500/30 bg-amber-500/5 text-amber-200'}`}>
+            <span className={`h-2 w-2 rounded-full ${connectionAvailable ? 'bg-emerald-400' : 'bg-slate-500'}`} />
+            ESP32 · {connectionAvailable ? 'online' : 'offline'} · demo
+          </span>
+          <span className={`inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-semibold ${connectionAvailable ? 'border-cyan-500/20 bg-cyan-500/5 text-cyan-300' : 'border-amber-500/30 bg-amber-500/5 text-amber-200'}`}>
+            <Wifi className="h-3.5 w-3.5" />Adafruit IO · {connectionAvailable ? 'connected' : 'offline'} · demo
+          </span>
+          <span className={`inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-semibold ${connectionAvailable ? 'border-violet-500/20 bg-violet-500/5 text-violet-300' : 'border-amber-500/30 bg-amber-500/5 text-amber-200'}`}>
+            <Server className="h-3.5 w-3.5" />Supabase · {connectionAvailable ? 'syncing' : 'disconnected'} · demo
+          </span>
+        </div>
+      </header>
+
+      <section aria-label="Light and relay configuration" className="space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h3 className="font-semibold text-white">Lights & relay assignments</h3>
+            <p className="mt-1 text-xs text-slate-400">Choose a relay count per light and operate each relay independently.</p>
+          </div>
+          <button
+            type="button"
+            onClick={addLight}
+            className="inline-flex items-center gap-2 rounded-lg border border-cyan-500/30 bg-cyan-500/10 px-4 py-2 text-sm font-semibold text-cyan-200 hover:bg-cyan-500/20"
+          >
+            <PlusCircle className="h-4 w-4" />Add light
+          </button>
+        </div>
+        <div className="grid gap-4 xl:grid-cols-2">
+          {lights.map(light => {
+            const lightOn = light.relays.some(Boolean);
+            return (
+              <article key={light.id} aria-label={`Light ${light.id} controls`} className="rounded-2xl border border-slate-800 bg-slate-900/70 p-5 sm:p-6">
+                <div className="flex flex-wrap items-center justify-between gap-4">
+                  <div className="flex items-center gap-4">
+                    <div className={`flex h-16 w-16 items-center justify-center rounded-full transition-all duration-500 ${lightOn ? 'animate-pulse bg-amber-300/15 text-amber-300 shadow-[0_0_28px_rgba(252,211,77,0.3)]' : 'bg-slate-950/70 text-slate-600'}`}>
+                      <Lightbulb aria-hidden="true" className={`h-10 w-10 transition-all duration-500 ${lightOn ? 'fill-amber-200/40 drop-shadow-[0_0_10px_rgba(252,211,77,0.8)]' : ''}`} />
+                    </div>
+                    <div>
+                      <h4 className="font-semibold text-white">Light {light.id}</h4>
+                      <p className={`mt-1 text-sm font-bold ${lightOn ? 'text-amber-300' : 'text-slate-400'}`}>{lightOn ? 'ON' : 'OFF'} · {light.relays.length} relay{light.relays.length === 1 ? '' : 's'}</p>
+                    </div>
+                  </div>
+                  <label className="flex items-center gap-2 text-xs font-medium text-slate-300">
+                    <span>Relays per light</span>
+                    <select
+                      aria-label={`Relay count for Light ${light.id}`}
+                      className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
+                      value={light.relays.length}
+                      onChange={event => setRelayCount(light.id, Number(event.target.value))}
+                    >
+                      {[1, 2, 3, 4, 5, 6, 7, 8].map(count => <option key={count} value={count}>{count}</option>)}
+                    </select>
+                  </label>
+                </div>
+
+                <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                  {light.relays.map((isOn, relayIndex) => (
+                    <div key={relayIndex} className={`flex items-center justify-between gap-3 rounded-xl border p-3 ${isOn ? 'border-amber-400/25 bg-amber-400/[0.04]' : 'border-slate-800 bg-slate-950/60'}`}>
+                      <div>
+                        <p className="text-sm font-semibold text-white">Relay {relayIndex + 1}</p>
+                        <p className={`mt-1 text-xs ${isOn ? 'text-amber-300' : 'text-slate-500'}`}>{isOn ? 'ON · light output active' : 'OFF'}</p>
+                      </div>
+                      <button
+                        type="button"
+                        role="switch"
+                        aria-label={`Light ${light.id} Relay ${relayIndex + 1}`}
+                        aria-checked={isOn}
+                        onClick={() => toggleRelay(light.id, relayIndex)}
+                        className={`relative h-7 w-12 shrink-0 rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 ${isOn ? 'bg-amber-400' : 'bg-slate-700'}`}
+                      >
+                        <span className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow transition-transform ${isOn ? 'translate-x-6' : 'translate-x-1'}`} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+                <p className="mt-4 text-xs text-slate-500">light feed: {light.relays.some(Boolean) ? 1 : 0} · relay feeds: {light.relays.map((isOn, index) => `${index + 1}=${isOn ? 1 : 0}`).join(', ')}</p>
+              </article>
+            );
+          })}
+        </div>
+      </section>
+
+      <div className="grid gap-5 lg:grid-cols-2">
+        <section aria-label="Light control activity history" className="rounded-2xl border border-slate-800 bg-slate-900/70 p-5 sm:p-6">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <h3 className="font-semibold text-white">Activity & command history</h3>
+              <p className="mt-1 text-xs text-slate-400">Recent light, relay, and connectivity changes</p>
+            </div>
+            <Activity className="h-5 w-5 text-cyan-300" />
+          </div>
+          <ul className="mt-4 space-y-2">
+            {activity.map(item => (
+              <li key={item.id} className="flex items-start justify-between gap-3 rounded-xl border border-slate-800 bg-slate-950/50 p-3">
+                <p className="text-sm text-slate-200">{item.event}</p>
+                <time className="shrink-0 text-[10px] text-slate-500">{item.timestamp}</time>
+              </li>
+            ))}
+          </ul>
+        </section>
+
+        <section aria-label="Light controller connection health" className="rounded-2xl border border-slate-800 bg-slate-900/70 p-5 sm:p-6">
+          <h3 className="font-semibold text-white">Connection & system health</h3>
+          <p className="mt-1 text-xs text-slate-400">ESP32 communication and cloud sync · demo status</p>
+          <div className="mt-4 grid gap-3 sm:grid-cols-3">
+            {[
+              { label: 'ESP32 device', value: connectionAvailable ? 'Online' : 'Offline' },
+              { label: 'Adafruit IO', value: connectionAvailable ? 'Connected' : 'Disconnected' },
+              { label: 'Supabase sync', value: connectionAvailable ? 'Syncing' : 'Disconnected' }
+            ].map(item => (
+              <article key={item.label} className="rounded-xl border border-slate-800 bg-slate-950/60 p-3">
+                <p className="text-xs text-slate-400">{item.label}</p>
+                <p className={`mt-1 text-sm font-semibold ${connectionAvailable ? 'text-emerald-300' : 'text-amber-300'}`}>{item.value}</p>
+              </article>
+            ))}
+          </div>
+          {mode === 'test' && (
+            <button
+              type="button"
+              onClick={toggleConnection}
+              className="mt-4 rounded-lg border border-amber-500/30 bg-amber-500/5 px-4 py-2 text-sm font-semibold text-amber-200 hover:bg-amber-500/10"
+            >
+              {connectionAvailable ? 'Simulate connection loss' : 'Restore demo connection'}
+            </button>
+          )}
+        </section>
+      </div>
+
+      <p role="status" className="rounded-xl border border-amber-500/20 bg-amber-500/5 px-4 py-3 text-xs leading-relaxed text-amber-200">
+        {mode === 'test' ? 'Test dashboard:' : 'Service portal preview:'} Light counts, relay assignments, light and relay states, activity history, ESP32, Adafruit IO, and Supabase are simulated. No cloud service or physical light/relay is connected.
       </p>
     </section>
   );
@@ -1999,8 +2175,10 @@ export default function GKBSite() {
                 ? <WaterTankMonitorDashboard mode="test" />
                 : testDevice.project === 'alcohol-breathalyzer'
                   ? <AlcoholBreathalyzerDashboard mode="test" />
-                  : testDevice.project === 'smart-fan-light'
-                    ? <SmartFanLightDashboard mode="test" />
+                  : testDevice.project === 'fan-regulator'
+                    ? <FanRegulatorDashboard mode="test" />
+                    : testDevice.project === 'light-control'
+                      ? <LightControlDashboard mode="test" />
                 : testDevice.project === 'prepaid-energy-meter'
                   ? <PrepaidEnergyMeterDashboard mode="test" />
                 : <GenericDeviceDashboard device={testDevice} mode="test" />}
@@ -2040,8 +2218,10 @@ export default function GKBSite() {
                     ? <WaterTankMonitorDashboard mode="service" />
                     : selectedDevice.project === 'alcohol-breathalyzer'
                       ? <AlcoholBreathalyzerDashboard mode="service" />
-                      : selectedDevice.project === 'smart-fan-light'
-                        ? <SmartFanLightDashboard mode="service" />
+                      : selectedDevice.project === 'fan-regulator'
+                        ? <FanRegulatorDashboard mode="service" />
+                        : selectedDevice.project === 'light-control'
+                          ? <LightControlDashboard mode="service" />
                     : selectedDevice.project === 'prepaid-energy-meter'
                       ? <PrepaidEnergyMeterDashboard mode="service" />
                     : <GenericDeviceDashboard device={selectedDevice} mode="service" />}

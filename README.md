@@ -37,9 +37,11 @@ Sign in to the portal and open **My Devices**:
 | Industrial Fuel Tank Monitor | `GKB-IUFT-0001` | Underground Fuel Tank Monitor |
 | GKB Smart Prepaid Energy Meter | `GKB-SPEM-0001` | Prepaid Energy Meter |
 | Smart Alcohol Breathalyzer System | `GKB-SAB-0001` | Alcohol Breathalyzer |
-| Smart Fan and Light Control System | `GKB-SFLC-0001` | Fan and Light Control |
+| Smart Fan Regulator | `GKB-FAN-0001` | Fan Regulator |
+| Smart Light Control System | `GKB-LIGHT-0001` | Light Control |
 
 The legacy Smart Water Tank key `GKB-WTR-4412` is also accepted.
+The previous combined fan/light demo key `GKB-SFLC-0001` remains accepted as an alias for the Smart Fan Regulator; link the Smart Light Control System separately with `GKB-LIGHT-0001`.
 
 ## Energy meter demo
 
@@ -51,9 +53,13 @@ All device keys and dashboard behavior are for demonstration. Device linking is 
 
 The breathalyzer preview provides an animated status face, sample BAC gauge, MQ-3 feed history, `mq3-alert-trigger` alerts, and simulated Wi-Fi/MQTT status. Use the range slider to simulate readings and update the chart and alerts. Its sample status bands are illustrative only, not legal or medical thresholds. This preview is not a medical device, does not determine fitness to drive, and must not be used to make safety decisions.
 
-## Smart fan and light demo
+## Smart fan regulator demo
 
-The Smart Fan and Light Control preview provides five simulated fan settings (Off and Speeds 1-4), an animated fan, an animated light bulb and toggle, command activity history, and ESP32, Adafruit IO, and Supabase status indicators. The `fan-speed` and `light` feed values shown in the dashboard are simulated. No physical appliances or cloud services are connected.
+The Smart Fan Regulator preview provides five fan settings (Off and Speeds 1-4) with one simulated relay assigned to each speed. Selecting a speed energizes that speed's relay and switches the other speed relays off. The animated fan reflects the selected speed. Feed and connection states are simulated; no physical fan or cloud service is connected.
+
+## Smart light control demo
+
+The Smart Light Control preview lets you add lights, choose 1-8 relays for each light, and independently switch every relay. A light's animated bulb turns on when any of its relays is on. Relay mappings, feed values, activity history, and ESP32, Adafruit IO, and Supabase statuses are simulated; no physical lights or cloud services are connected.
 
 ## Deployment
 
