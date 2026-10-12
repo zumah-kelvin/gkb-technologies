@@ -21,11 +21,12 @@ type Device = {
   status: string;
   lastAlert: string;
   project?: StudentProject;
+  legacyKeys?: string[];
 };
 
 const defaultDevices: Device[] = [
   { id: 1, name: 'Smart Home Security System v1', key: 'GKB-SEC-9988', status: 'Online', lastAlert: 'Intrusion detected at Living Room (14:22 PM)' },
-  { id: 2, name: 'Smart Water Tank Monitor', key: 'GKB-WTR-4412', status: 'Online', lastAlert: 'Water level stable at 68%', project: 'water-tank-monitor' },
+  { id: 2, name: 'Smart Water Tank Monitor', key: 'GKB-SWP-0001', legacyKeys: ['GKB-WTR-4412'], status: 'Online', lastAlert: 'Water level stable at 68%', project: 'water-tank-monitor' },
   { id: 3, name: 'Industrial Fuel Tank Monitor', key: 'GKB-IUFT-0001', status: 'Online', lastAlert: 'Fuel level stable at 72%', project: 'fuel-tank-monitor' }
 ];
 
@@ -590,7 +591,9 @@ export default function GKBSite() {
   const [devices, setDevices] = useState<Device[]>(() => {
     const storedDevices = window.localStorage.getItem('gkb-devices');
     const savedDevices = storedDevices ? JSON.parse(storedDevices) as Device[] : [];
-    const customDevices = savedDevices.filter(device => !defaultDevices.some(defaultDevice => defaultDevice.key === device.key));
+    const customDevices = savedDevices.filter(device => !defaultDevices.some(defaultDevice =>
+      defaultDevice.key === device.key || defaultDevice.legacyKeys?.includes(device.key)
+    ));
     return [...defaultDevices, ...customDevices];
   });
 
@@ -654,7 +657,10 @@ export default function GKBSite() {
       const savedLinks = window.localStorage.getItem(`gkb-linked-devices:${account.email.trim().toLowerCase()}`);
       const accountDevices = savedLinks ? JSON.parse(savedLinks) as Device[] : [];
       setLinkedDevices(accountDevices.map(linkedDevice =>
-        devices.find(device => device.key.toUpperCase() === linkedDevice.key.toUpperCase()) ?? linkedDevice
+        devices.find(device =>
+          device.key.toUpperCase() === linkedDevice.key.toUpperCase() ||
+          device.legacyKeys?.some(key => key.toUpperCase() === linkedDevice.key.toUpperCase())
+        ) ?? linkedDevice
       ));
     } catch (error) {
       console.error('Unable to load this account’s linked devices from browser storage.', error);
@@ -693,7 +699,11 @@ export default function GKBSite() {
     e.preventDefault();
     setLinkMessage('');
     setLinkMessageIsError(false);
-    const found = devices.find((d: Device) => d.key.toUpperCase() === inputKey.trim().toUpperCase());
+    const enteredKey = inputKey.trim().toUpperCase();
+    const found = devices.find((d: Device) =>
+      d.key.toUpperCase() === enteredKey ||
+      d.legacyKeys?.some(key => key.toUpperCase() === enteredKey)
+    );
     if (found) {
       if (!linkedDevices.some((d: Device) => d.key === found.key)) {
         const nextLinkedDevices = [...linkedDevices, found];
