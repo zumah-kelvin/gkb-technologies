@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { 
+import {
   Cpu, Shield, Smartphone, Wrench, Phone, Mail, Globe, Camera,
-  User, Lock, LogOut, PlusCircle, CheckCircle, AlertTriangle, 
+  User, Lock, LogOut, PlusCircle, CheckCircle, AlertTriangle,
   Send, Server, Terminal, Activity, Layers, ArrowRight, CheckSquare, Square,
-  Sun, Moon
+  Sun, Moon, Zap, Wifi, Radio, Gauge, BatteryCharging
 } from 'lucide-react';
 
 type ServiceType = 'student-projects' | 'retail-gadgets';
-type StudentProject = 'fuel-tank-monitor' | 'water-tank-monitor';
+type StudentProject = 'fuel-tank-monitor' | 'water-tank-monitor' | 'prepaid-energy-meter';
 
 type UserType = {
   role: 'admin' | 'client';
@@ -27,7 +27,8 @@ type Device = {
 const defaultDevices: Device[] = [
   { id: 1, name: 'Smart Home Security System v1', key: 'GKB-SEC-9988', status: 'Online', lastAlert: 'Intrusion detected at Living Room (14:22 PM)' },
   { id: 2, name: 'Smart Water Tank Monitor', key: 'GKB-SWP-0001', legacyKeys: ['GKB-WTR-4412'], status: 'Online', lastAlert: 'Water level stable at 68%', project: 'water-tank-monitor' },
-  { id: 3, name: 'Industrial Fuel Tank Monitor', key: 'GKB-IUFT-0001', status: 'Online', lastAlert: 'Fuel level stable at 72%', project: 'fuel-tank-monitor' }
+  { id: 3, name: 'Industrial Fuel Tank Monitor', key: 'GKB-IUFT-0001', status: 'Online', lastAlert: 'Fuel level stable at 72%', project: 'fuel-tank-monitor' },
+  { id: 4, name: 'GKB Smart Prepaid Energy Meter', key: 'GKB-SPEM-0001', status: 'Online', lastAlert: 'Meter secure · balance GHS 24.50', project: 'prepaid-energy-meter' }
 ];
 
 type Complaint = {
@@ -538,6 +539,365 @@ function WaterTankMonitorDashboard({ mode }: { mode: 'test' | 'service' }) {
 
       <p role="status" className="rounded-xl border border-amber-500/20 bg-amber-500/5 px-4 py-3 text-xs leading-relaxed text-amber-200">
         {mode === 'test' ? 'Test preview:' : 'Service portal preview:'} all readings, alerts, connection states, and pump actions are simulated. They do not represent or control a physical tank; live monitoring requires a connected hardware service.
+      </p>
+    </section>
+  );
+}
+
+type MeterAlert = {
+  id: string;
+  title: string;
+  detail: string;
+  severity: 'info' | 'warning' | 'critical';
+};
+
+function PrepaidEnergyMeterDashboard({ mode }: { mode: 'test' | 'service' }) {
+  const [balance, setBalance] = useState(24.5);
+  const [relayRequested, setRelayRequested] = useState(true);
+  const [tamperState, setTamperState] = useState<'secure' | 'detected' | 'maintenance'>('secure');
+  const [networkAvailable, setNetworkAvailable] = useState(true);
+  const [alerts, setAlerts] = useState<MeterAlert[]>([
+    { id: 'initial-online', title: 'Meter online', detail: 'Demo device connected · just now', severity: 'info' },
+    { id: 'initial-recharge', title: 'Recharge successful', detail: 'GHS 20.00 added · balance GHS 24.50', severity: 'info' },
+    { id: 'initial-tamper', title: 'Tamper protection armed', detail: 'Enclosure secure · just now', severity: 'info' }
+  ]);
+  const lowBalance = balance < 11;
+  const safetyCutoff = balance <= 0 || tamperState !== 'secure';
+  const relayActual = relayRequested && !safetyCutoff;
+  const securityLabel = tamperState === 'detected'
+    ? 'Tampering detected'
+    : tamperState === 'maintenance'
+      ? 'Maintenance mode'
+      : 'Secure';
+  const securityColor = tamperState === 'detected'
+    ? 'text-red-300'
+    : tamperState === 'maintenance'
+      ? 'text-amber-300'
+      : 'text-emerald-300';
+
+  const recordAlert = (title: string, detail: string, severity: MeterAlert['severity'] = 'info') => {
+    setAlerts(current => [{ id: `${Date.now()}-${Math.random()}`, title, detail, severity }, ...current].slice(0, 8));
+  };
+
+  const toggleRelay = () => {
+    if (safetyCutoff) return;
+    const next = !relayRequested;
+    setRelayRequested(next);
+    recordAlert('Relay switched', `Demo relay switched ${next ? 'ON' : 'OFF'}.`);
+  };
+
+  const recharge = () => {
+    const updatedBalance = Number((balance + 20).toFixed(2));
+    setBalance(updatedBalance);
+    recordAlert('Recharge successful', `GHS 20.00 added · balance GHS ${updatedBalance.toFixed(2)}.`);
+  };
+
+  const detectTamper = () => {
+    setTamperState('detected');
+    setRelayRequested(false);
+    recordAlert('Tamper detected', 'Enclosure opened · system locked and load disconnected.', 'critical');
+  };
+
+  const scanMaintenanceCard = () => {
+    setTamperState('maintenance');
+    setRelayRequested(false);
+    recordAlert('Maintenance mode activated', 'Authorized maintenance RFID card accepted locally.');
+  };
+
+  const rearmProtection = () => {
+    setTamperState('secure');
+    recordAlert('Tamper protection re-armed', 'Enclosure monitoring restored after authorized maintenance.');
+  };
+
+  const simulateUnauthorizedCard = () => {
+    recordAlert('Unauthorized RFID scan', 'Card not authorized · no credit added.', 'warning');
+  };
+
+  const simulateConnectivityIssue = () => {
+    const next = !networkAvailable;
+    setNetworkAvailable(next);
+    recordAlert(
+      next ? 'Connectivity restored' : 'Connectivity problem',
+      next ? 'Wi-Fi and Adafruit IO demo connections restored.' : 'Adafruit IO connection lost · local safety remains active.',
+      next ? 'info' : 'warning'
+    );
+  };
+
+  return (
+    <section aria-labelledby="energy-meter-title" className="space-y-5">
+      <header className="flex flex-col gap-4 rounded-2xl border border-cyan-500/20 bg-slate-900/80 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
+        <div>
+          <div className="mb-2 flex flex-wrap items-center gap-2">
+            <span className="rounded-full border border-cyan-400/30 bg-cyan-400/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.18em] text-cyan-300">
+              {mode === 'test' ? 'Private device test preview' : 'Service portal'}
+            </span>
+            <span className="rounded-full border border-amber-400/30 bg-amber-400/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-amber-300">
+              Simulated telemetry & controls
+            </span>
+          </div>
+          <h2 id="energy-meter-title" className="text-xl font-bold text-white sm:text-2xl">GKB Smart Prepaid Energy Meter</h2>
+          <p className="mt-1 text-sm text-slate-400">PZEM-004T energy monitoring · RFID prepaid control · tamper protection</p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <span className="inline-flex items-center gap-2 rounded-lg border border-emerald-500/20 bg-emerald-500/5 px-3 py-2 text-xs font-semibold text-emerald-300">
+            <span className="h-2 w-2 rounded-full bg-emerald-400" />Device online · demo
+          </span>
+          <span className={`inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-semibold ${networkAvailable ? 'border-cyan-500/20 bg-cyan-500/5 text-cyan-300' : 'border-amber-500/30 bg-amber-500/5 text-amber-200'}`}>
+            <Wifi className="h-3.5 w-3.5" />Wi-Fi · {networkAvailable ? 'connected' : 'offline'} · demo
+          </span>
+          <span className={`inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-semibold ${networkAvailable ? 'border-cyan-500/20 bg-cyan-500/5 text-cyan-300' : 'border-amber-500/30 bg-amber-500/5 text-amber-200'}`}>
+            <Radio className="h-3.5 w-3.5" />Adafruit IO · {networkAvailable ? 'connected' : 'disconnected'} · demo
+          </span>
+        </div>
+      </header>
+
+      <nav aria-label="Energy meter dashboard sections" className="flex gap-2 overflow-x-auto pb-1 text-xs">
+        {['Energy overview', 'Prepaid balance', 'Live measurements', 'Power control', 'RFID recharge history', 'Tamper & security', 'Consumption analytics', 'Alerts & notifications'].map((section, index) => (
+          <a key={section} href={`#energy-section-${index}`} className="shrink-0 rounded-lg border border-slate-800 bg-slate-900/70 px-3 py-2 text-slate-300 transition-colors hover:border-cyan-500/40 hover:text-cyan-300">
+            {section}
+          </a>
+        ))}
+      </nav>
+
+      <section id="energy-section-0" aria-label="Energy overview" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <article id="energy-section-1" className={`rounded-2xl border p-5 ${lowBalance ? 'border-amber-500/40 bg-amber-500/[0.06]' : 'border-emerald-500/20 bg-emerald-500/[0.04]'}`}>
+          <div className="flex items-start justify-between gap-2">
+            <p className="text-xs font-medium uppercase tracking-wider text-slate-400">Prepaid balance</p>
+            <BatteryCharging className={`h-5 w-5 ${lowBalance ? 'text-amber-300' : 'text-emerald-300'}`} />
+          </div>
+          <p className="mt-3 text-3xl font-bold text-white">GHS {balance.toFixed(2)}</p>
+          <p className={`mt-2 text-xs font-semibold ${lowBalance ? 'text-amber-300' : 'text-emerald-300'}`}>
+            {lowBalance ? 'Low balance · below GHS 11.00' : 'Credit available'}
+          </p>
+        </article>
+        <article className="rounded-2xl border border-slate-800 bg-slate-900/70 p-5">
+          <p className="text-xs font-medium uppercase tracking-wider text-slate-400">Energy consumed</p>
+          <p className="mt-3 text-3xl font-bold text-white">18.42 <span className="text-sm font-medium text-slate-400">kWh</span></p>
+          <p className="mt-2 text-xs text-slate-500">Today · simulated PZEM reading</p>
+        </article>
+        <article className="rounded-2xl border border-slate-800 bg-slate-900/70 p-5">
+          <p className="text-xs font-medium uppercase tracking-wider text-slate-400">Meter status</p>
+          <p className={`mt-3 text-xl font-bold ${securityColor}`}>{tamperState === 'detected' ? 'Locked' : tamperState === 'maintenance' ? 'Maintenance' : 'Operational'}</p>
+          <p className="mt-2 text-xs text-slate-500">System {networkAvailable ? 'healthy' : 'connectivity degraded'} · simulated</p>
+        </article>
+        <article className="rounded-2xl border border-slate-800 bg-slate-900/70 p-5">
+          <p className="text-xs font-medium uppercase tracking-wider text-slate-400">Relay status</p>
+          <p className={`mt-3 text-xl font-bold ${relayActual ? 'text-emerald-300' : 'text-slate-300'}`}>{relayActual ? 'ON' : 'OFF'}</p>
+          <p className="mt-2 text-xs text-slate-500">{safetyCutoff ? 'Safety cutoff active' : 'Demo relay state'}</p>
+        </article>
+      </section>
+
+      <section id="energy-section-2" aria-label="Live electrical measurements">
+        <div className="mb-3">
+          <h3 className="text-lg font-bold text-white">Live measurements</h3>
+          <p className="mt-1 text-xs text-slate-400">PZEM-004T sample values · not live sensor data</p>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          {[
+            { name: 'Voltage', value: '230.4', unit: 'V', icon: Zap, color: 'text-amber-300' },
+            { name: 'Current', value: '2.18', unit: 'A', icon: Activity, color: 'text-cyan-300' },
+            { name: 'Power', value: '482', unit: 'W', icon: Gauge, color: 'text-purple-300' },
+            { name: 'Energy', value: '18.42', unit: 'kWh', icon: BatteryCharging, color: 'text-emerald-300' },
+            { name: 'Frequency', value: '50.0', unit: 'Hz', icon: Activity, color: 'text-blue-300' },
+            { name: 'Power factor', value: '0.96', unit: 'PF', icon: Zap, color: 'text-pink-300' }
+          ].map(measurement => (
+            <article key={measurement.name} className="rounded-2xl border border-slate-800 bg-slate-900/70 p-4">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-medium uppercase tracking-wider text-slate-400">{measurement.name}</p>
+                <measurement.icon className={`h-4 w-4 ${measurement.color}`} />
+              </div>
+              <p className="mt-3 text-2xl font-bold text-white">{measurement.value} <span className="text-sm font-medium text-slate-400">{measurement.unit}</span></p>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <div className="grid gap-5 lg:grid-cols-2">
+        <section id="energy-section-3" aria-label="Power control" className="space-y-4 rounded-2xl border border-slate-800 bg-slate-900/70 p-5 sm:p-6">
+          <div>
+            <h3 className="font-semibold text-white">Power control</h3>
+            <p className="mt-1 text-xs text-slate-400">Relay commands are simulated and do not control a physical load.</p>
+          </div>
+          <div className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-slate-800 bg-slate-950/70 p-4">
+            <div>
+              <p className="text-xs font-medium uppercase tracking-wider text-slate-400">Relay actual status · demo</p>
+              <p className={`mt-1 text-lg font-bold ${relayActual ? 'text-emerald-300' : 'text-slate-300'}`}>{relayActual ? 'ON · Load connected' : 'OFF · Load disconnected'}</p>
+            </div>
+            <button
+              type="button"
+              aria-pressed={relayActual}
+              disabled={safetyCutoff}
+              onClick={toggleRelay}
+              className={`rounded-lg px-4 py-2.5 text-sm font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 disabled:cursor-not-allowed disabled:opacity-50 ${relayActual ? 'bg-red-500/15 text-red-300 hover:bg-red-500/25' : 'bg-emerald-500/15 text-emerald-300 hover:bg-emerald-500/25'}`}
+            >
+              {relayActual ? 'Switch power OFF' : 'Switch power ON'}
+            </button>
+          </div>
+          {safetyCutoff && (
+            <p role="alert" className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm font-semibold text-red-200">
+              Safety lock: the demo load is disconnected {balance <= 0 ? 'because prepaid credit is zero.' : 'until authorized maintenance clears the tamper state.'}
+            </p>
+          )}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="rounded-xl border border-cyan-500/20 bg-cyan-500/5 p-3">
+              <p className="text-xs text-slate-400">Wi-Fi · demo</p>
+              <p className={`mt-1 text-sm font-semibold ${networkAvailable ? 'text-cyan-300' : 'text-amber-300'}`}>{networkAvailable ? 'Connected' : 'Offline'}</p>
+            </div>
+            <div className="rounded-xl border border-cyan-500/20 bg-cyan-500/5 p-3">
+              <p className="text-xs text-slate-400">Adafruit IO · demo</p>
+              <p className={`mt-1 text-sm font-semibold ${networkAvailable ? 'text-cyan-300' : 'text-amber-300'}`}>{networkAvailable ? 'Connected' : 'Disconnected'}</p>
+            </div>
+          </div>
+          {mode === 'test' && (
+            <button type="button" onClick={simulateConnectivityIssue} className="rounded-lg border border-amber-500/30 bg-amber-500/5 px-4 py-2 text-sm font-semibold text-amber-200 hover:bg-amber-500/10">
+              {networkAvailable ? 'Simulate connectivity problem' : 'Restore demo connectivity'}
+            </button>
+          )}
+        </section>
+
+        <section id="energy-section-4" aria-label="RFID recharge history" className="space-y-4 rounded-2xl border border-slate-800 bg-slate-900/70 p-5 sm:p-6">
+          <div className="flex items-center gap-2">
+            <Radio className="h-5 w-5 text-cyan-300" />
+            <div>
+              <h3 className="font-semibold text-white">RFID recharge</h3>
+              <p className="mt-1 text-xs text-slate-400">Configured demo recharge value: GHS 20.00</p>
+            </div>
+          </div>
+          <div className="rounded-xl border border-slate-800 bg-slate-950/70 p-4">
+            <p className="text-xs text-slate-400">Most recent recharge</p>
+            <p className="mt-1 font-semibold text-white">GHS 20.00 · Authorized recharge card</p>
+            <p className="mt-1 text-xs text-slate-500">Updated balance: GHS {balance.toFixed(2)} · simulated history</p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <button type="button" onClick={recharge} className="rounded-lg bg-cyan-500 px-4 py-2.5 text-sm font-bold text-slate-950 transition-colors hover:bg-cyan-400">
+              Simulate recharge card scan
+            </button>
+            <button type="button" onClick={simulateUnauthorizedCard} className="rounded-lg border border-amber-500/30 bg-amber-500/5 px-4 py-2.5 text-sm font-semibold text-amber-200 transition-colors hover:bg-amber-500/10">
+              Simulate unauthorized card
+            </button>
+          </div>
+        </section>
+      </div>
+
+      <section id="energy-section-5" aria-label="Tamper and security monitoring" className={`space-y-4 rounded-2xl border p-5 sm:p-6 ${tamperState === 'detected' ? 'border-red-500/50 bg-red-950/30' : 'border-slate-800 bg-slate-900/70'}`}>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <Shield className={`h-6 w-6 ${securityColor}`} />
+            <div>
+              <h3 className="font-semibold text-white">Tamper detection & security</h3>
+              <p className={`mt-1 text-sm font-bold ${securityColor}`}>Enclosure: {securityLabel}</p>
+            </div>
+          </div>
+          {mode === 'test' && tamperState === 'secure' && (
+            <button type="button" onClick={detectTamper} className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-2 text-sm font-semibold text-red-200 hover:bg-red-500/20">
+              Simulate enclosure tamper
+            </button>
+          )}
+        </div>
+        {tamperState === 'detected' && (
+          <div role="alert" className="rounded-xl border border-red-500/50 bg-red-500/10 p-4">
+            <p className="text-sm font-black uppercase tracking-wide text-red-200">Critical security alert · meter locked</p>
+            <p className="mt-1 text-sm text-red-100/80">Load disconnected. Scan an authorized maintenance RFID card locally before re-arming tamper protection.</p>
+          </div>
+        )}
+        {tamperState === 'maintenance' && (
+          <div role="status" className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-4">
+            <p className="text-sm font-bold text-amber-200">Authorized maintenance mode active</p>
+            <p className="mt-1 text-sm text-amber-100/80">The demo remains locked until tamper protection is re-armed.</p>
+          </div>
+        )}
+        <div className="flex flex-wrap gap-2">
+          {(tamperState === 'detected' || tamperState === 'maintenance') && (
+            <button type="button" onClick={scanMaintenanceCard} className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-2.5 text-sm font-semibold text-amber-100 hover:bg-amber-500/20">
+              Simulate local maintenance RFID scan
+            </button>
+          )}
+          {tamperState === 'maintenance' && (
+            <button type="button" onClick={rearmProtection} className="rounded-lg bg-emerald-500 px-4 py-2.5 text-sm font-bold text-slate-950 hover:bg-emerald-400">
+              Re-arm tamper protection
+            </button>
+          )}
+        </div>
+        {mode === 'test' && (
+          <label className="block max-w-md">
+            <span className="flex items-center justify-between gap-3 text-xs text-slate-400">
+              <span>Simulate prepaid balance</span>
+              <span className="font-mono text-cyan-300">GHS {balance.toFixed(2)}</span>
+            </span>
+            <input
+              type="range"
+              min="0"
+              max="50"
+              step="0.5"
+              value={balance}
+              aria-label="Simulate prepaid balance"
+              onChange={event => {
+                const nextBalance = Number(event.target.value);
+                setBalance(nextBalance);
+                if (nextBalance === 0) {
+                  setRelayRequested(false);
+                  recordAlert('Prepaid credit exhausted', 'Balance reached GHS 0.00 · load automatically disconnected.', 'critical');
+                } else if (nextBalance < 11) {
+                  recordAlert('Low energy credit', `Balance is GHS ${nextBalance.toFixed(2)} · below GHS 11.00.`, 'warning');
+                }
+              }}
+              className="mt-2 w-full accent-cyan-400"
+            />
+            <span className="mt-1 block text-[11px] text-slate-500">Use zero to demonstrate the automatic safety cutoff and GHS 11 low-balance warning.</span>
+          </label>
+        )}
+      </section>
+
+      <div className="grid gap-5 lg:grid-cols-2">
+        <section id="energy-section-6" aria-label="Consumption analytics" className="rounded-2xl border border-slate-800 bg-slate-900/70 p-5 sm:p-6">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h3 className="font-semibold text-white">Consumption analytics</h3>
+              <p className="mt-1 text-xs text-slate-400">Sample usage, demand and prepaid balance history</p>
+            </div>
+            <span className="rounded-lg border border-slate-700 bg-slate-950/60 px-3 py-1.5 text-[11px] text-slate-300">Last 24 hours</span>
+          </div>
+          <svg role="img" aria-label="Simulated electricity consumption and power demand history" viewBox="0 0 640 220" className="mt-5 h-48 w-full" preserveAspectRatio="none">
+            {[35, 75, 115, 155].map(y => <line key={y} x1="0" x2="640" y1={y} y2={y} stroke="#334155" strokeDasharray="4 6" />)}
+            <path d="M0 155 L80 141 L160 148 L240 95 L320 119 L400 83 L480 99 L560 55 L640 72" fill="none" stroke="#22d3ee" strokeWidth="3" />
+            <path d="M0 103 L80 117 L160 91 L240 126 L320 81 L400 107 L480 68 L560 93 L640 52" fill="none" stroke="#a78bfa" strokeWidth="3" />
+            <path d="M0 77 L80 88 L160 71 L240 80 L320 65 L400 83 L480 69 L560 77 L640 62" fill="none" stroke="#fbbf24" strokeWidth="2.5" />
+            <path d="M0 42 L80 49 L160 57 L240 66 L320 82 L400 94 L480 108 L560 123 L640 139" fill="none" stroke="#34d399" strokeWidth="2.5" />
+            <text x="4" y="205" fill="#94a3b8" fontSize="11">00:00</text>
+            <text x="155" y="205" fill="#94a3b8" fontSize="11">06:00</text>
+            <text x="315" y="205" fill="#94a3b8" fontSize="11">12:00</text>
+            <text x="475" y="205" fill="#94a3b8" fontSize="11">18:00</text>
+            <text x="600" y="205" fill="#94a3b8" fontSize="11">Now</text>
+          </svg>
+          <div className="mt-3 flex flex-wrap gap-4 text-xs">
+            <span className="inline-flex items-center gap-2 text-cyan-300"><span className="h-0.5 w-4 bg-cyan-300" />Energy use (kWh)</span>
+            <span className="inline-flex items-center gap-2 text-violet-300"><span className="h-0.5 w-4 bg-violet-300" />Power demand (W)</span>
+            <span className="inline-flex items-center gap-2 text-amber-300"><span className="h-0.5 w-4 bg-amber-300" />Voltage (V)</span>
+            <span className="inline-flex items-center gap-2 text-emerald-300"><span className="h-0.5 w-4 bg-emerald-300" />Prepaid balance (GHS)</span>
+          </div>
+        </section>
+
+        <section id="energy-section-7" aria-label="Alerts and notifications" className="rounded-2xl border border-slate-800 bg-slate-900/70 p-5 sm:p-6">
+          <div className="mb-4 flex items-center justify-between">
+            <div>
+              <h3 className="font-semibold text-white">Alerts & notifications</h3>
+              <p className="mt-1 text-xs text-slate-400">Recent simulated meter events</p>
+            </div>
+            <AlertTriangle className="h-5 w-5 text-amber-300" />
+          </div>
+          <ul className="max-h-72 space-y-2 overflow-y-auto">
+            {alerts.map(alert => (
+              <li key={alert.id} className={`rounded-xl border p-3 ${alert.severity === 'critical' ? 'border-red-500/30 bg-red-500/[0.06]' : alert.severity === 'warning' ? 'border-amber-500/25 bg-amber-500/[0.04]' : 'border-slate-800 bg-slate-950/60'}`}>
+                <p className={`text-sm font-semibold ${alert.severity === 'critical' ? 'text-red-200' : alert.severity === 'warning' ? 'text-amber-200' : 'text-slate-200'}`}>{alert.title}</p>
+                <p className="mt-1 text-xs text-slate-400">{alert.detail}</p>
+              </li>
+            ))}
+          </ul>
+        </section>
+      </div>
+
+      <p role="status" className="rounded-xl border border-amber-500/20 bg-amber-500/5 px-4 py-3 text-xs leading-relaxed text-amber-200">
+        {mode === 'test' ? 'Test dashboard:' : 'Service portal preview:'} all meter measurements, account credit, RFID scans, tamper events, network status, charts, and relay actions are simulated. No PZEM sensor, RFID reader, Adafruit IO service, or physical relay is connected. Production safety cutoffs must be enforced locally by the meter hardware.
       </p>
     </section>
   );
@@ -1149,6 +1509,8 @@ export default function GKBSite() {
               ? <FuelTankMonitorDashboard mode="test" />
               : testDevice.project === 'water-tank-monitor'
                 ? <WaterTankMonitorDashboard mode="test" />
+                : testDevice.project === 'prepaid-energy-meter'
+                  ? <PrepaidEnergyMeterDashboard mode="test" />
                 : <GenericDeviceDashboard device={testDevice} mode="test" />}
           </div>
         )}
@@ -1184,6 +1546,8 @@ export default function GKBSite() {
                   ? <FuelTankMonitorDashboard mode="service" />
                   : selectedDevice.project === 'water-tank-monitor'
                     ? <WaterTankMonitorDashboard mode="service" />
+                    : selectedDevice.project === 'prepaid-energy-meter'
+                      ? <PrepaidEnergyMeterDashboard mode="service" />
                     : <GenericDeviceDashboard device={selectedDevice} mode="service" />}
               </div>
             ) : (
