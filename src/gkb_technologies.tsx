@@ -7,7 +7,7 @@ import {
 } from 'lucide-react';
 
 type ServiceType = 'student-projects' | 'retail-gadgets';
-type StudentProject = 'fuel-tank-monitor';
+type StudentProject = 'fuel-tank-monitor' | 'water-tank-monitor';
 
 type UserType = {
   role: 'admin' | 'client';
@@ -25,7 +25,7 @@ type Device = {
 
 const defaultDevices: Device[] = [
   { id: 1, name: 'Smart Home Security System v1', key: 'GKB-SEC-9988', status: 'Online', lastAlert: 'Intrusion detected at Living Room (14:22 PM)' },
-  { id: 2, name: 'Smart Water Tank Monitor', key: 'GKB-WTR-4412', status: 'Standby', lastAlert: 'Water level stable at 85%' },
+  { id: 2, name: 'Smart Water Tank Monitor', key: 'GKB-WTR-4412', status: 'Online', lastAlert: 'Water level stable at 68%', project: 'water-tank-monitor' },
   { id: 3, name: 'Industrial Fuel Tank Monitor', key: 'GKB-IUFT-0001', status: 'Online', lastAlert: 'Fuel level stable at 72%', project: 'fuel-tank-monitor' }
 ];
 
@@ -299,6 +299,249 @@ function FuelTankMonitorDashboard({ mode }: { mode: 'test' | 'service' }) {
   );
 }
 
+function WaterTankMonitorDashboard({ mode }: { mode: 'test' | 'service' }) {
+  const [waterLevel, setWaterLevel] = useState(68);
+  const [controlMode, setControlMode] = useState<'automatic' | 'manual'>('automatic');
+  const [manualPumpOn, setManualPumpOn] = useState(false);
+  const automaticPumpOn = controlMode === 'automatic' && waterLevel <= 30;
+  const pumpOn = controlMode === 'automatic' ? automaticPumpOn : manualPumpOn;
+  const tankStatus = waterLevel <= 5 ? 'Empty' : waterLevel >= 95 ? 'Full' : pumpOn ? 'Filling' : waterLevel <= 30 ? 'Low' : 'Normal';
+  const statusColor = tankStatus === 'Empty' || tankStatus === 'Low'
+    ? 'text-amber-300'
+    : tankStatus === 'Full'
+      ? 'text-emerald-300'
+      : tankStatus === 'Filling'
+        ? 'text-cyan-300'
+        : 'text-slate-200';
+  const alerts = [
+    { label: 'Low water level', detail: waterLevel <= 30 ? 'Water is below the 30% threshold.' : 'Level is above the low-water threshold.', active: waterLevel <= 30 },
+    { label: 'Full tank', detail: waterLevel >= 95 ? 'Tank capacity limit reached.' : 'Tank has available capacity.', active: waterLevel >= 95 },
+    { label: 'Sensor fault', detail: 'Level sensor diagnostics normal.', active: false },
+    { label: 'Pump activity', detail: pumpOn ? 'Pump is running.' : 'Pump is currently off.', active: pumpOn },
+    { label: 'GSM connection', detail: 'GSM internet link is available (simulated).', active: false }
+  ];
+
+  const handleModeChange = (nextMode: 'automatic' | 'manual') => {
+    setControlMode(nextMode);
+    if (nextMode === 'automatic') {
+      setManualPumpOn(false);
+    }
+  };
+
+  const handlePumpToggle = () => {
+    if (controlMode !== 'manual') return;
+    const nextPumpOn = !manualPumpOn;
+    setManualPumpOn(nextPumpOn);
+    if (nextPumpOn) {
+      setWaterLevel(level => Math.min(level + 4, 100));
+    }
+  };
+
+  return (
+    <section aria-labelledby="water-monitor-title" className="space-y-5">
+      <header className="flex flex-col gap-4 rounded-2xl border border-cyan-500/20 bg-slate-900/80 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
+        <div>
+          <div className="mb-2 flex flex-wrap items-center gap-2">
+            <span className="rounded-full border border-cyan-400/30 bg-cyan-400/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.18em] text-cyan-300">
+              {mode === 'test' ? 'Device test preview' : 'Service portal'}
+            </span>
+            <span className="rounded-full border border-amber-400/30 bg-amber-400/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-amber-300">
+              Simulated values
+            </span>
+          </div>
+          <h2 id="water-monitor-title" className="text-xl font-bold text-white sm:text-2xl">Smart Water Tank System</h2>
+          <p className="mt-1 text-sm text-slate-400">Remote water-level monitoring and pump control preview</p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <span className="inline-flex items-center gap-2 rounded-lg border border-emerald-500/20 bg-emerald-500/5 px-3 py-2 text-xs font-semibold text-emerald-300">
+            <span className="h-2 w-2 rounded-full bg-emerald-400" />Device online · demo
+          </span>
+          <span className="inline-flex items-center gap-2 rounded-lg border border-cyan-500/20 bg-cyan-500/5 px-3 py-2 text-xs font-semibold text-cyan-300">
+            <Server className="h-3.5 w-3.5" />System healthy · demo
+          </span>
+        </div>
+      </header>
+
+      <div className="grid gap-5 lg:grid-cols-[minmax(0,1.2fr)_minmax(280px,0.8fr)]">
+        <article className="rounded-2xl border border-slate-800 bg-slate-900/70 p-5 sm:p-6">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <p className="text-xs font-medium uppercase tracking-wider text-slate-400">Current water level</p>
+              <p className="mt-2 text-4xl font-bold tracking-tight text-white">{waterLevel}<span className="ml-1 text-xl text-slate-400">%</span></p>
+              <p className="mt-1 text-sm text-slate-400">{Math.round(waterLevel * 50)} L of 5,000 L</p>
+            </div>
+            <span className={`rounded-full border border-slate-700 bg-slate-950 px-3 py-1.5 text-sm font-bold ${statusColor}`}>
+              {tankStatus}
+            </span>
+          </div>
+          <div className="mt-5 grid items-center gap-5 sm:grid-cols-[minmax(140px,0.65fr)_1fr]">
+            <div className="mx-auto w-full max-w-[200px]">
+              <svg role="img" aria-label={`Water tank ${waterLevel} percent full`} viewBox="0 0 180 240" className="h-56 w-full">
+                <defs>
+                  <linearGradient id="water-tank-fill" x1="0" x2="0" y1="0" y2="1">
+                    <stop offset="0%" stopColor="#22d3ee" />
+                    <stop offset="100%" stopColor="#2563eb" />
+                  </linearGradient>
+                  <clipPath id="water-tank-clip">
+                    <rect x="30" y="28" width="120" height="184" rx="22" />
+                  </clipPath>
+                </defs>
+                <rect x="30" y="28" width="120" height="184" rx="22" fill="#0f172a" stroke="#475569" strokeWidth="4" />
+                <g clipPath="url(#water-tank-clip)">
+                  <rect x="30" y={212 - waterLevel * 1.84} width="120" height={waterLevel * 1.84} fill="url(#water-tank-fill)" />
+                  <path d={`M30 ${212 - waterLevel * 1.84} Q60 ${202 - waterLevel * 1.84} 90 ${212 - waterLevel * 1.84} T150 ${212 - waterLevel * 1.84}`} fill="none" stroke="#a5f3fc" strokeWidth="3" opacity="0.8" />
+                </g>
+                {[0, 25, 50, 75, 100].map(mark => (
+                  <g key={mark}>
+                    <line x1="151" x2="161" y1={212 - mark * 1.84} y2={212 - mark * 1.84} stroke="#94a3b8" strokeWidth="2" />
+                    <text x="166" y={216 - mark * 1.84} fill="#94a3b8" fontSize="10">{mark}</text>
+                  </g>
+                ))}
+                <text x="90" y="128" textAnchor="middle" fill="white" fontSize="24" fontWeight="700">{waterLevel}%</text>
+              </svg>
+            </div>
+            <div className="space-y-3">
+              <div className="rounded-xl border border-slate-800 bg-slate-950/70 p-4">
+                <p className="text-xs font-medium uppercase tracking-wider text-slate-400">Measured water level</p>
+                <p className="mt-2 text-lg font-semibold text-white">{Math.round(waterLevel * 1.8)} cm <span className="text-xs font-normal text-slate-400">of 180 cm</span></p>
+              </div>
+              <div className="rounded-xl border border-slate-800 bg-slate-950/70 p-4">
+                <p className="text-xs font-medium uppercase tracking-wider text-slate-400">Tank status</p>
+                <p className={`mt-2 text-lg font-semibold ${statusColor}`}>{tankStatus}</p>
+              </div>
+              <div
+                role="progressbar"
+                aria-label="Water tank level"
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-valuenow={waterLevel}
+                className="h-2 overflow-hidden rounded-full bg-slate-800"
+              >
+                <div className="h-full rounded-full bg-gradient-to-r from-blue-500 to-cyan-300 transition-all" style={{ width: `${waterLevel}%` }} />
+              </div>
+              {mode === 'test' && (
+                <label className="mt-5 block">
+                  <span className="flex items-center justify-between gap-3 text-xs text-slate-400">
+                    <span>Simulate sensor level</span>
+                    <span className="font-mono text-cyan-300">{waterLevel}%</span>
+                  </span>
+                  <input
+                    type="range"
+                    min="0"
+                    max="100"
+                    value={waterLevel}
+                    aria-label="Simulate sensor water level"
+                    onChange={event => setWaterLevel(Number(event.target.value))}
+                    className="mt-2 w-full accent-cyan-400"
+                  />
+                  <span className="mt-1 block text-[11px] text-slate-500">Preview Empty, Low, Filling, and Full thresholds with sample values.</span>
+                </label>
+              )}
+            </div>
+          </div>
+        </article>
+
+        <article className="space-y-5 rounded-2xl border border-slate-800 bg-slate-900/70 p-5 sm:p-6">
+          <div>
+            <h3 className="font-semibold text-white">Pump controls</h3>
+            <p className="mt-1 text-xs text-slate-400">Controls update this preview only.</p>
+          </div>
+          <div>
+            <p className="mb-2 text-xs font-medium uppercase tracking-wider text-slate-400">Operating mode</p>
+            <div role="group" aria-label="Pump operating mode" className="grid grid-cols-2 rounded-xl border border-slate-800 bg-slate-950 p-1">
+              {(['automatic', 'manual'] as const).map(modeOption => (
+                <button
+                  key={modeOption}
+                  type="button"
+                  aria-pressed={controlMode === modeOption}
+                  onClick={() => handleModeChange(modeOption)}
+                  className={`rounded-lg px-3 py-2.5 text-sm font-semibold capitalize transition-colors ${controlMode === modeOption ? 'bg-cyan-500 text-slate-950' : 'text-slate-400 hover:text-white'}`}
+                >
+                  {modeOption}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="flex items-center justify-between gap-3 rounded-xl border border-slate-800 bg-slate-950/70 p-4">
+            <div>
+              <p className="text-xs font-medium uppercase tracking-wider text-slate-400">Pump status</p>
+              <p className={`mt-1 font-bold ${pumpOn ? 'text-emerald-300' : 'text-slate-300'}`}>{pumpOn ? 'ON · Filling' : 'OFF'}</p>
+            </div>
+            <button
+              type="button"
+              aria-pressed={pumpOn}
+              disabled={controlMode === 'automatic'}
+              onClick={handlePumpToggle}
+              className={`rounded-lg px-4 py-2.5 text-sm font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 disabled:cursor-not-allowed disabled:opacity-50 ${pumpOn ? 'bg-red-500/15 text-red-300 hover:bg-red-500/25' : 'bg-emerald-500/15 text-emerald-300 hover:bg-emerald-500/25'}`}
+            >
+              {pumpOn ? 'Turn pump off' : 'Turn pump on'}
+            </button>
+          </div>
+          <p className="text-xs leading-relaxed text-slate-500">
+            {controlMode === 'automatic' ? 'Automatic mode manages the pump at the configured level thresholds. Switch to Manual to test the pump control.' : 'Manual mode lets you simulate switching the pump. Turning it on adds a sample level increase.'}
+          </p>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="rounded-xl border border-cyan-500/20 bg-cyan-500/5 p-3">
+              <p className="text-xs text-slate-400">GSM internet</p>
+              <p className="mt-1 text-sm font-semibold text-cyan-300">Connected · demo</p>
+            </div>
+            <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3">
+              <p className="text-xs text-slate-400">System health</p>
+              <p className="mt-1 text-sm font-semibold text-emerald-300">Healthy · demo</p>
+            </div>
+          </div>
+        </article>
+      </div>
+
+      <div className="grid gap-5 lg:grid-cols-2">
+        <article className="rounded-2xl border border-slate-800 bg-slate-900/70 p-5 sm:p-6">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h3 className="font-semibold text-white">Water-level history</h3>
+              <p className="mt-1 text-xs text-slate-400">Sample readings over the last 12 hours</p>
+            </div>
+            <span className="rounded-lg border border-slate-700 bg-slate-950/60 px-3 py-1.5 text-[11px] font-medium text-slate-300">12 hours</span>
+          </div>
+          <svg role="img" aria-label="Sample water level history chart" viewBox="0 0 600 190" className="mt-5 h-44 w-full" preserveAspectRatio="none">
+            {[30, 70, 110, 150].map(y => <line key={y} x1="0" x2="600" y1={y} y2={y} stroke="#334155" strokeDasharray="4 6" />)}
+            <path d="M0 120 L75 112 L150 116 L225 92 L300 98 L375 77 L450 81 L525 58 L600 65 L600 170 L0 170 Z" fill="#06b6d4" fillOpacity="0.13" />
+            <path d="M0 120 L75 112 L150 116 L225 92 L300 98 L375 77 L450 81 L525 58 L600 65" fill="none" stroke="#22d3ee" strokeWidth="3" />
+            <text x="4" y="185" fill="#94a3b8" fontSize="11">12h ago</text>
+            <text x="275" y="185" fill="#94a3b8" fontSize="11">6h ago</text>
+            <text x="565" y="185" fill="#94a3b8" fontSize="11">Now</text>
+          </svg>
+        </article>
+
+        <article className="rounded-2xl border border-slate-800 bg-slate-900/70 p-5 sm:p-6">
+          <div className="mb-4 flex items-center justify-between">
+            <div>
+              <h3 className="font-semibold text-white">Alerts & system events</h3>
+              <p className="mt-1 text-xs text-slate-400">Current conditions and recent event categories</p>
+            </div>
+            <AlertTriangle className="h-5 w-5 text-amber-300" />
+          </div>
+          <ul className="space-y-2">
+            {alerts.map(alert => (
+              <li key={alert.label} className={`flex items-start gap-3 rounded-xl border p-3 ${alert.active ? 'border-amber-500/25 bg-amber-500/5' : 'border-slate-800 bg-slate-950/60'}`}>
+                <span className={`mt-1 h-2 w-2 shrink-0 rounded-full ${alert.active ? 'bg-amber-400' : 'bg-emerald-400'}`} />
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-semibold text-slate-200">{alert.label}</p>
+                  <p className="mt-0.5 text-xs text-slate-400">{alert.detail}</p>
+                </div>
+                <span className={`text-[10px] font-bold uppercase ${alert.active ? 'text-amber-300' : 'text-emerald-300'}`}>{alert.active ? 'Active' : 'Clear'}</span>
+              </li>
+            ))}
+          </ul>
+        </article>
+      </div>
+
+      <p role="status" className="rounded-xl border border-amber-500/20 bg-amber-500/5 px-4 py-3 text-xs leading-relaxed text-amber-200">
+        {mode === 'test' ? 'Test preview:' : 'Service portal preview:'} all readings, alerts, connection states, and pump actions are simulated. They do not represent or control a physical tank; live monitoring requires a connected hardware service.
+      </p>
+    </section>
+  );
+}
+
 function GenericDeviceDashboard({ device, mode }: { device: Device; mode: 'test' | 'service' }) {
   return (
     <section className="space-y-5">
@@ -346,7 +589,9 @@ export default function GKBSite() {
   // Admin / Client Dynamic App Data
   const [devices, setDevices] = useState<Device[]>(() => {
     const storedDevices = window.localStorage.getItem('gkb-devices');
-    return storedDevices ? JSON.parse(storedDevices) as Device[] : defaultDevices;
+    const savedDevices = storedDevices ? JSON.parse(storedDevices) as Device[] : [];
+    const customDevices = savedDevices.filter(device => !defaultDevices.some(defaultDevice => defaultDevice.key === device.key));
+    return [...defaultDevices, ...customDevices];
   });
 
   const [linkedDevices, setLinkedDevices] = useState<Device[]>([]);
@@ -403,9 +648,14 @@ export default function GKBSite() {
   const activateUser = (account: UserType) => {
     setUser(account);
     setActiveTab(selectedService ? 'service-portal' : 'devices');
+    setSelectedDevice(null);
+    setTestDevice(null);
     try {
       const savedLinks = window.localStorage.getItem(`gkb-linked-devices:${account.email.trim().toLowerCase()}`);
-      setLinkedDevices(savedLinks ? JSON.parse(savedLinks) as Device[] : []);
+      const accountDevices = savedLinks ? JSON.parse(savedLinks) as Device[] : [];
+      setLinkedDevices(accountDevices.map(linkedDevice =>
+        devices.find(device => device.key.toUpperCase() === linkedDevice.key.toUpperCase()) ?? linkedDevice
+      ));
     } catch (error) {
       console.error('Unable to load this account’s linked devices from browser storage.', error);
       setLinkedDevices([]);
@@ -887,7 +1137,9 @@ export default function GKBSite() {
             </button>
             {testDevice.project === 'fuel-tank-monitor'
               ? <FuelTankMonitorDashboard mode="test" />
-              : <GenericDeviceDashboard device={testDevice} mode="test" />}
+              : testDevice.project === 'water-tank-monitor'
+                ? <WaterTankMonitorDashboard mode="test" />
+                : <GenericDeviceDashboard device={testDevice} mode="test" />}
           </div>
         )}
 
@@ -920,7 +1172,9 @@ export default function GKBSite() {
                 </button>
                 {selectedDevice.project === 'fuel-tank-monitor'
                   ? <FuelTankMonitorDashboard mode="service" />
-                  : <GenericDeviceDashboard device={selectedDevice} mode="service" />}
+                  : selectedDevice.project === 'water-tank-monitor'
+                    ? <WaterTankMonitorDashboard mode="service" />
+                    : <GenericDeviceDashboard device={selectedDevice} mode="service" />}
               </div>
             ) : (
               <section className="rounded-2xl border border-slate-800 bg-slate-900/50 p-6">
