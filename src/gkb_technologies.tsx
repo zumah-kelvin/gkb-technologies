@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 
 type ServiceType = 'student-projects' | 'retail-gadgets';
+type StudentProject = 'fuel-tank-monitor';
 
 type UserType = {
   role: 'admin' | 'client';
@@ -19,6 +20,7 @@ type Device = {
   key: string;
   status: string;
   lastAlert: string;
+  project?: StudentProject;
 };
 
 type Complaint = {
@@ -303,12 +305,14 @@ export default function GKBSite() {
   const [loginPassword, setLoginPassword] = useState('');
   const [loginError, setLoginError] = useState('');
   const [selectedService, setSelectedService] = useState<ServiceType | null>(null);
+  const [selectedStudentProject, setSelectedStudentProject] = useState<StudentProject | null>(null);
   const [demoPaymentComplete, setDemoPaymentComplete] = useState(false);
 
   // Admin / Client Dynamic App Data
   const [devices, setDevices] = useState<Device[]>([
     { id: 1, name: 'Smart Home Security System v1', key: 'GKB-SEC-9988', status: 'Online', lastAlert: 'Intrusion detected at Living Room (14:22 PM)' },
-    { id: 2, name: 'Smart Water Tank Monitor', key: 'GKB-WTR-4412', status: 'Standby', lastAlert: 'Water level stable at 85%' }
+    { id: 2, name: 'Smart Water Tank Monitor', key: 'GKB-WTR-4412', status: 'Standby', lastAlert: 'Water level stable at 85%' },
+    { id: 3, name: 'Industrial Fuel Tank Monitor', key: 'GKB-IUFT-0001', status: 'Online', lastAlert: 'Fuel level stable at 72%', project: 'fuel-tank-monitor' }
   ]);
 
   const [linkedDevices, setLinkedDevices] = useState<Device[]>([]);
@@ -368,11 +372,13 @@ export default function GKBSite() {
     setUser(null);
     setActiveTab('about');
     setSelectedService(null);
+    setSelectedStudentProject(null);
     setDemoPaymentComplete(false);
   };
 
   const handleServiceSelect = (service: ServiceType) => {
     setSelectedService(service);
+    setSelectedStudentProject(null);
     setDemoPaymentComplete(false);
     if (user) {
       setActiveTab('service-portal');
@@ -395,6 +401,12 @@ export default function GKBSite() {
       if (!linkedDevices.some((d: Device) => d.key === found.key)) {
         setLinkedDevices([...linkedDevices, found]);
         setLinkMessage(`Success! Device "${found.name}" linked to your portal.`);
+        if (found.project === 'fuel-tank-monitor') {
+          setSelectedService('student-projects');
+          setSelectedStudentProject(found.project);
+          setDemoPaymentComplete(false);
+          setActiveTab('service-portal');
+        }
       } else {
         setLinkMessage('Device is already linked to your account.');
       }
@@ -772,6 +784,20 @@ export default function GKBSite() {
                             ESP32 Connected
                           </span>
                         </div>
+                        {ld.project === 'fuel-tank-monitor' && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedService('student-projects');
+                              setSelectedStudentProject(ld.project ?? null);
+                              setActiveTab('service-portal');
+                            }}
+                            className="inline-flex items-center gap-2 rounded-lg bg-cyan-500 px-4 py-2 text-sm font-bold text-slate-950 transition-colors hover:bg-cyan-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300"
+                          >
+                            Open in Service Portal
+                            <ArrowRight className="h-4 w-4" />
+                          </button>
+                        )}
 
                         {/* Live Threat Notification Simulated Card */}
                         <div className="p-4 rounded-xl bg-slate-950 border border-red-500/30 flex items-start space-x-3">
@@ -803,65 +829,144 @@ export default function GKBSite() {
               </h2>
               <p className="mt-2 text-sm text-slate-300">
                 {selectedService === 'student-projects'
-                  ? 'Explore the industrial fuel tank monitor prototype and its sample sensor dashboard below.'
+                  ? 'Browse your student projects and open a project to explore its interface.'
                   : 'Browse your linked device dashboard and contact GKB to confirm gadget availability and pricing.'}
               </p>
             </div>
 
-            {selectedService === 'student-projects' && <FuelTankMonitorDashboard />}
-
-            <section className="rounded-2xl border border-purple-500/30 bg-slate-900/60 p-6">
-              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <h3 className="text-lg font-bold text-white">Your linked devices</h3>
-                  <p className="mt-1 text-sm text-slate-400">
-                    {linkedDevices.length
-                      ? `${linkedDevices.length} device${linkedDevices.length === 1 ? '' : 's'} linked to your account.`
-                      : 'Link a device to view its dashboard and latest status.'}
-                  </p>
+            {selectedService === 'student-projects' && (
+              <>
+                <div role="tablist" aria-label="Student projects" className="flex gap-2 overflow-x-auto border-b border-slate-800 pb-2">
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={selectedStudentProject === null}
+                    onClick={() => setSelectedStudentProject(null)}
+                    className={`shrink-0 rounded-lg px-4 py-2.5 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 ${
+                      selectedStudentProject === null
+                        ? 'border border-cyan-500/40 bg-cyan-500/10 text-cyan-300'
+                        : 'text-slate-400 hover:bg-slate-900 hover:text-white'
+                    }`}
+                  >
+                    All projects
+                  </button>
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={selectedStudentProject === 'fuel-tank-monitor'}
+                    onClick={() => setSelectedStudentProject('fuel-tank-monitor')}
+                    className={`shrink-0 rounded-lg px-4 py-2.5 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 ${
+                      selectedStudentProject === 'fuel-tank-monitor'
+                        ? 'border border-cyan-500/40 bg-cyan-500/10 text-cyan-300'
+                        : 'text-slate-400 hover:bg-slate-900 hover:text-white'
+                    }`}
+                  >
+                    Industrial Fuel Tank Monitor
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setActiveTab('devices')}
-                  className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg bg-cyan-500 px-4 py-2.5 text-sm font-bold text-black transition-colors hover:bg-cyan-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300"
-                >
-                  <Cpu className="h-4 w-4" />
-                  View device dashboard
-                </button>
-              </div>
-              {linkedDevices.length > 0 && (
-                <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                  {linkedDevices.map(device => (
-                    <div key={device.id} className="rounded-xl border border-slate-800 bg-slate-950 p-4">
-                      <p className="font-semibold text-white">{device.name}</p>
-                      <p className="mt-1 text-xs text-slate-400">{device.status} · {device.lastAlert}</p>
+
+                {selectedStudentProject === null ? (
+                  <section role="tabpanel" className="rounded-2xl border border-emerald-500/30 bg-slate-900/60 p-6">
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                      <div>
+                        <p className="text-xs font-bold uppercase tracking-wider text-emerald-300">IoT · Student project</p>
+                        <h3 className="mt-2 text-lg font-bold text-white">Industrial Fuel Tank Monitor</h3>
+                        <p className="mt-1 text-sm text-slate-400">Open the project to view its sample industrial tank dashboard.</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedStudentProject('fuel-tank-monitor')}
+                        className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg bg-emerald-400 px-4 py-2.5 text-sm font-bold text-slate-950 transition-colors hover:bg-emerald-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300"
+                      >
+                        Open project
+                        <ArrowRight className="h-4 w-4" />
+                      </button>
                     </div>
-                  ))}
-                </div>
-              )}
-            </section>
+                  </section>
+                ) : (
+                  <div role="tabpanel">
+                    <FuelTankMonitorDashboard />
+                  </div>
+                )}
+              </>
+            )}
 
-            <section className="rounded-2xl border border-emerald-500/30 bg-slate-900/60 p-6">
-              <h3 className="flex items-center gap-2 text-lg font-bold text-white">
-                <CreditCard className="h-5 w-5 text-emerald-400" />
-                Demo checkout
-              </h3>
-              <p className="mt-2 text-sm text-slate-300">
-                Checkout is currently a demo only. No payment provider, price, or real charge is configured.
-              </p>
-              <button
-                type="button"
-                onClick={() => setDemoPaymentComplete(true)}
-                className="mt-4 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-4 py-2.5 text-sm font-bold text-emerald-300 transition-colors hover:bg-emerald-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400"
-              >
-                Preview demo checkout
-              </button>
-              {demoPaymentComplete && (
-                <p role="status" className="mt-3 text-sm text-emerald-300">
-                  Demo checkout preview complete. No payment was processed or money charged.
-                </p>
-              )}
-            </section>
+            {selectedService !== 'student-projects' || selectedStudentProject === null ? (
+              <>
+                <section className="rounded-2xl border border-purple-500/30 bg-slate-900/60 p-6">
+                  <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <h3 className="text-lg font-bold text-white">Your linked devices</h3>
+                      <p className="mt-1 text-sm text-slate-400">
+                        {linkedDevices.length
+                          ? `${linkedDevices.length} device${linkedDevices.length === 1 ? '' : 's'} linked to your account.`
+                          : 'Link a device to view its dashboard and latest status.'}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab('devices')}
+                      className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg bg-cyan-500 px-4 py-2.5 text-sm font-bold text-black transition-colors hover:bg-cyan-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300"
+                    >
+                      <Cpu className="h-4 w-4" />
+                      View device dashboard
+                    </button>
+                  </div>
+                  {linkedDevices.length > 0 && (
+                    <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                      {linkedDevices.map(device => {
+                        const content = (
+                          <>
+                            <p className="font-semibold text-white">{device.name}</p>
+                            <p className="mt-1 text-xs text-slate-400">{device.status} · {device.lastAlert}</p>
+                          </>
+                        );
+
+                        return device.project === 'fuel-tank-monitor' ? (
+                          <button
+                            key={device.id}
+                            type="button"
+                            onClick={() => setSelectedStudentProject(device.project ?? null)}
+                            className="rounded-xl border border-slate-800 bg-slate-950 p-4 text-left transition-colors hover:border-cyan-500/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
+                          >
+                            {content}
+                            <span className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-cyan-300">
+                              Open project dashboard <ArrowRight className="h-3.5 w-3.5" />
+                            </span>
+                          </button>
+                        ) : (
+                          <div key={device.id} className="rounded-xl border border-slate-800 bg-slate-950 p-4">
+                            {content}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </section>
+
+                <section className="rounded-2xl border border-emerald-500/30 bg-slate-900/60 p-6">
+                  <h3 className="flex items-center gap-2 text-lg font-bold text-white">
+                    <CreditCard className="h-5 w-5 text-emerald-400" />
+                    Demo checkout
+                  </h3>
+                  <p className="mt-2 text-sm text-slate-300">
+                    Checkout is currently a demo only. No payment provider, price, or real charge is configured.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setDemoPaymentComplete(true)}
+                    className="mt-4 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-4 py-2.5 text-sm font-bold text-emerald-300 transition-colors hover:bg-emerald-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400"
+                  >
+                    Preview demo checkout
+                  </button>
+                  {demoPaymentComplete && (
+                    <p role="status" className="mt-3 text-sm text-emerald-300">
+                      Demo checkout preview complete. No payment was processed or money charged.
+                    </p>
+                  )}
+                </section>
+              </>
+            ) : null}
           </div>
         )}
 
