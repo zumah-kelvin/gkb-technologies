@@ -105,7 +105,7 @@ function RelayTestDashboard({ mode }: { mode: 'test' | 'service' }) {
             onClick={() => setRelayOn(current => !current)}
             className={`relative h-10 w-[4.5rem] rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 ${relayOn ? 'bg-emerald-500' : 'bg-slate-700'}`}
           >
-            <span className={`absolute top-1 h-8 w-8 rounded-full bg-white shadow transition-transform ${relayOn ? 'translate-x-10' : 'translate-x-1'}`} />
+            <span className={`absolute left-1 top-1 h-8 w-8 rounded-full bg-white shadow transition-transform ${relayOn ? 'translate-x-8' : 'translate-x-0'}`} />
           </button>
           <p className={`text-lg font-bold ${relayOn ? 'text-emerald-300' : 'text-slate-300'}`}>{relayOn ? 'ON' : 'OFF'}</p>
           <p className="text-center text-xs leading-relaxed text-slate-500">Demo only · this switch does not control a physical relay or car.</p>
