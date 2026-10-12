@@ -22,6 +22,7 @@ type Device = {
   lastAlert: string;
   project?: StudentProject;
   legacyKeys?: string[];
+  relayChannels?: 4 | 6 | 8;
 };
 
 const defaultDevices: Device[] = [
@@ -31,7 +32,9 @@ const defaultDevices: Device[] = [
   { id: 4, name: 'GKB Smart Prepaid Energy Meter', key: 'GKB-SPEM-0001', status: 'Online', lastAlert: 'Meter secure · balance GHS 24.50', project: 'prepaid-energy-meter' },
   { id: 5, name: 'Smart Alcohol Breathalyzer System', key: 'GKB-SAB-0001', status: 'Online', lastAlert: 'Alcohol level clear · demo', project: 'alcohol-breathalyzer' },
   { id: 6, name: 'Smart Fan Regulator', key: 'GKB-FAN-0001', legacyKeys: ['GKB-SFLC-0001'], status: 'Online', lastAlert: 'Fan off · all speed relays open · demo', project: 'fan-regulator' },
-  { id: 7, name: 'Smart Light Control System', key: 'GKB-LIGHT-0001', status: 'Online', lastAlert: 'All lights off · demo', project: 'light-control' }
+  { id: 7, name: 'Smart Light Control System v1 · 4-channel', key: 'GKB-LIGHTV1-0001', legacyKeys: ['GKB-LIGHT-0001'], status: 'Online', lastAlert: 'All 4 lights off · demo', project: 'light-control', relayChannels: 4 },
+  { id: 8, name: 'Smart Light Control System v2 · 6-channel', key: 'GKB-LIGHTV2-0001', status: 'Online', lastAlert: 'All 6 lights off · demo', project: 'light-control', relayChannels: 6 },
+  { id: 9, name: 'Smart Light Control System v3 · 8-channel', key: 'GKB-LIGHTV3-0001', status: 'Online', lastAlert: 'All 8 lights off · demo', project: 'light-control', relayChannels: 8 }
 ];
 
 type Complaint = {
@@ -994,16 +997,46 @@ function FanRegulatorDashboard({ mode }: { mode: 'test' | 'service' }) {
 }
 
 type ControlledLight = {
-  id: number;
-  relays: boolean[];
+  channel: number;
+  name: string;
+  isOn: boolean;
 };
 
-function LightControlDashboard({ mode }: { mode: 'test' | 'service' }) {
-  const [lights, setLights] = useState<ControlledLight[]>([{ id: 1, relays: [false] }]);
+function LightControlDashboard({ mode, device }: { mode: 'test' | 'service'; device: Device }) {
+  const relayChannels = device.relayChannels ?? 4;
+  const [lights, setLights] = useState<ControlledLight[]>(() => {
+    const defaults = Array.from({ length: relayChannels }, (_, index) => ({
+      channel: index + 1,
+      name: `Light ${index + 1}`,
+      isOn: false
+    }));
+    try {
+      const storedNames = window.localStorage.getItem(`gkb-light-names:${device.key}`);
+      const names = storedNames ? JSON.parse(storedNames) as string[] : [];
+      return defaults.map(light => {
+        const savedName = names[light.channel - 1];
+        return { ...light, name: typeof savedName === 'string' ? savedName.trim() || light.name : light.name };
+      });
+    } catch (error) {
+      console.error('Unable to load saved light names.', error);
+      return defaults;
+    }
+  });
   const [connectionAvailable, setConnectionAvailable] = useState(true);
   const [activity, setActivity] = useState<DeviceControlActivity[]>([
-    { id: 'initial-light-state', event: 'Light controller ready · all lights off', timestamp: 'Just now' }
+    { id: 'initial-light-state', event: `Light controller ready · ${relayChannels}-channel · all lights off`, timestamp: 'Just now' }
   ]);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(
+        `gkb-light-names:${device.key}`,
+        JSON.stringify(lights.map(light => light.name))
+      );
+    } catch (error) {
+      console.error('Unable to save light names.', error);
+    }
+  }, [device.key, lights]);
 
   const recordActivity = (event: string) => {
     setActivity(current => [
@@ -1012,30 +1045,20 @@ function LightControlDashboard({ mode }: { mode: 'test' | 'service' }) {
     ].slice(0, 8));
   };
 
-  const addLight = () => {
-    const id = Math.max(0, ...lights.map(light => light.id)) + 1;
-    setLights(current => [...current, { id, relays: [false] }]);
-    recordActivity(`Light ${id} added with Relay 1 · off`);
+  const renameLight = (channel: number, name: string) => {
+    setLights(current => current.map(light => light.channel === channel ? { ...light, name } : light));
   };
 
-  const setRelayCount = (lightId: number, count: number) => {
-    setLights(current => current.map(light => {
-      if (light.id !== lightId) return light;
-      const relays = Array.from({ length: count }, (_, index) => light.relays[index] ?? false);
-      return { ...light, relays };
-    }));
-    recordActivity(`Light ${lightId} configured with ${count} relay${count === 1 ? '' : 's'}`);
+  const saveLightName = (channel: number) => {
+    const light = lights.find(item => item.channel === channel);
+    if (light) recordActivity(`Relay ${channel} light name set to "${light.name.trim() || `Light ${channel}`}"`);
   };
 
-  const toggleRelay = (lightId: number, relayIndex: number) => {
-    setLights(current => current.map(light => (
-      light.id === lightId
-        ? { ...light, relays: light.relays.map((isOn, index) => index === relayIndex ? !isOn : isOn) }
-        : light
-    )));
-    const currentLight = lights.find(light => light.id === lightId);
-    const nextState = !currentLight?.relays[relayIndex];
-    recordActivity(`Light ${lightId} Relay ${relayIndex + 1} switched ${nextState ? 'ON' : 'OFF'} · relay${relayIndex + 1}=${nextState ? 1 : 0}`);
+  const toggleRelay = (channel: number) => {
+    const light = lights.find(item => item.channel === channel);
+    const nextState = !light?.isOn;
+    setLights(current => current.map(item => item.channel === channel ? { ...item, isOn: nextState } : item));
+    recordActivity(`${light?.name.trim() || `Light ${channel}`} switched ${nextState ? 'ON' : 'OFF'} · relay${channel}=${nextState ? 1 : 0}`);
   };
 
   const toggleConnection = () => {
@@ -1056,8 +1079,8 @@ function LightControlDashboard({ mode }: { mode: 'test' | 'service' }) {
               Simulated controls
             </span>
           </div>
-          <h2 id="light-control-title" className="text-xl font-bold text-white sm:text-2xl">Smart Light Control System</h2>
-          <p className="mt-1 text-sm text-slate-400">Configure independent relay outputs for each light</p>
+          <h2 id="light-control-title" className="text-xl font-bold text-white sm:text-2xl">{device.name}</h2>
+          <p className="mt-1 text-sm text-slate-400">{relayChannels}-channel relay controller · one independent light output per relay</p>
         </div>
         <div className="flex flex-wrap gap-2">
           <span className={`inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-semibold ${connectionAvailable ? 'border-emerald-500/20 bg-emerald-500/5 text-emerald-300' : 'border-amber-500/30 bg-amber-500/5 text-amber-200'}`}>
@@ -1076,66 +1099,56 @@ function LightControlDashboard({ mode }: { mode: 'test' | 'service' }) {
       <section aria-label="Light and relay configuration" className="space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h3 className="font-semibold text-white">Lights & relay assignments</h3>
-            <p className="mt-1 text-xs text-slate-400">Choose a relay count per light and operate each relay independently.</p>
+            <h3 className="font-semibold text-white">Light names & relay outputs</h3>
+            <p className="mt-1 text-xs text-slate-400">This device key sets the fixed {relayChannels}-relay channel count. Rename each light for easy identification.</p>
           </div>
-          <button
-            type="button"
-            onClick={addLight}
-            className="inline-flex items-center gap-2 rounded-lg border border-cyan-500/30 bg-cyan-500/10 px-4 py-2 text-sm font-semibold text-cyan-200 hover:bg-cyan-500/20"
-          >
-            <PlusCircle className="h-4 w-4" />Add light
-          </button>
         </div>
-        <div className="grid gap-4 xl:grid-cols-2">
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {lights.map(light => {
-            const lightOn = light.relays.some(Boolean);
+            const lightOn = light.isOn;
             return (
-              <article key={light.id} aria-label={`Light ${light.id} controls`} className="rounded-2xl border border-slate-800 bg-slate-900/70 p-5 sm:p-6">
+              <article key={light.channel} aria-label={`Relay ${light.channel} light controls`} className="rounded-2xl border border-slate-800 bg-slate-900/70 p-5 sm:p-6">
                 <div className="flex flex-wrap items-center justify-between gap-4">
                   <div className="flex items-center gap-4">
                     <div className={`flex h-16 w-16 items-center justify-center rounded-full transition-all duration-500 ${lightOn ? 'animate-pulse bg-amber-300/15 text-amber-300 shadow-[0_0_28px_rgba(252,211,77,0.3)]' : 'bg-slate-950/70 text-slate-600'}`}>
                       <Lightbulb aria-hidden="true" className={`h-10 w-10 transition-all duration-500 ${lightOn ? 'fill-amber-200/40 drop-shadow-[0_0_10px_rgba(252,211,77,0.8)]' : ''}`} />
                     </div>
                     <div>
-                      <h4 className="font-semibold text-white">Light {light.id}</h4>
-                      <p className={`mt-1 text-sm font-bold ${lightOn ? 'text-amber-300' : 'text-slate-400'}`}>{lightOn ? 'ON' : 'OFF'} · {light.relays.length} relay{light.relays.length === 1 ? '' : 's'}</p>
+                      <p className="text-xs font-medium uppercase tracking-wider text-slate-400">Relay {light.channel}</p>
+                      <p className={`mt-1 text-sm font-bold ${lightOn ? 'text-amber-300' : 'text-slate-400'}`}>{lightOn ? 'ON' : 'OFF'}</p>
                     </div>
                   </div>
-                  <label className="flex items-center gap-2 text-xs font-medium text-slate-300">
-                    <span>Relays per light</span>
-                    <select
-                      aria-label={`Relay count for Light ${light.id}`}
-                      className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
-                      value={light.relays.length}
-                      onChange={event => setRelayCount(light.id, Number(event.target.value))}
-                    >
-                      {[1, 2, 3, 4, 5, 6, 7, 8].map(count => <option key={count} value={count}>{count}</option>)}
-                    </select>
-                  </label>
                 </div>
 
-                <div className="mt-5 grid gap-3 sm:grid-cols-2">
-                  {light.relays.map((isOn, relayIndex) => (
-                    <div key={relayIndex} className={`flex items-center justify-between gap-3 rounded-xl border p-3 ${isOn ? 'border-amber-400/25 bg-amber-400/[0.04]' : 'border-slate-800 bg-slate-950/60'}`}>
-                      <div>
-                        <p className="text-sm font-semibold text-white">Relay {relayIndex + 1}</p>
-                        <p className={`mt-1 text-xs ${isOn ? 'text-amber-300' : 'text-slate-500'}`}>{isOn ? 'ON · light output active' : 'OFF'}</p>
-                      </div>
-                      <button
-                        type="button"
-                        role="switch"
-                        aria-label={`Light ${light.id} Relay ${relayIndex + 1}`}
-                        aria-checked={isOn}
-                        onClick={() => toggleRelay(light.id, relayIndex)}
-                        className={`relative h-7 w-12 shrink-0 rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 ${isOn ? 'bg-amber-400' : 'bg-slate-700'}`}
-                      >
-                        <span className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow transition-transform ${isOn ? 'translate-x-6' : 'translate-x-1'}`} />
-                      </button>
-                    </div>
-                  ))}
+                <label className="mt-5 block">
+                  <span className="text-xs font-medium text-slate-300">Light name</span>
+                  <input
+                    aria-label={`Name for Relay ${light.channel}`}
+                    className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
+                    maxLength={40}
+                    value={light.name}
+                    onChange={event => renameLight(light.channel, event.target.value)}
+                    onBlur={() => saveLightName(light.channel)}
+                  />
+                </label>
+
+                <div className={`mt-4 flex items-center justify-between gap-3 rounded-xl border p-3 ${lightOn ? 'border-amber-400/25 bg-amber-400/[0.04]' : 'border-slate-800 bg-slate-950/60'}`}>
+                  <div>
+                    <p className="text-sm font-semibold text-white">Relay {light.channel} output</p>
+                    <p className={`mt-1 text-xs ${lightOn ? 'text-amber-300' : 'text-slate-500'}`}>{lightOn ? 'ON · light output active' : 'OFF'}</p>
+                  </div>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-label={`${light.name.trim() || `Light ${light.channel}`} relay`}
+                    aria-checked={lightOn}
+                    onClick={() => toggleRelay(light.channel)}
+                    className={`relative h-7 w-12 shrink-0 rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 ${lightOn ? 'bg-amber-400' : 'bg-slate-700'}`}
+                  >
+                    <span className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow transition-transform ${lightOn ? 'translate-x-6' : 'translate-x-1'}`} />
+                  </button>
                 </div>
-                <p className="mt-4 text-xs text-slate-500">light feed: {light.relays.some(Boolean) ? 1 : 0} · relay feeds: {light.relays.map((isOn, index) => `${index + 1}=${isOn ? 1 : 0}`).join(', ')}</p>
+                <p className="mt-3 text-xs text-slate-500">light feed: {lightOn ? 1 : 0} · relay{light.channel}={lightOn ? 1 : 0}</p>
               </article>
             );
           })}
@@ -1189,7 +1202,7 @@ function LightControlDashboard({ mode }: { mode: 'test' | 'service' }) {
       </div>
 
       <p role="status" className="rounded-xl border border-amber-500/20 bg-amber-500/5 px-4 py-3 text-xs leading-relaxed text-amber-200">
-        {mode === 'test' ? 'Test dashboard:' : 'Service portal preview:'} Light counts, relay assignments, light and relay states, activity history, ESP32, Adafruit IO, and Supabase are simulated. No cloud service or physical light/relay is connected.
+        {mode === 'test' ? 'Test dashboard:' : 'Service portal preview:'} The device key determines the fixed relay channel count. Light names, relay states, activity history, ESP32, Adafruit IO, and Supabase are simulated. No cloud service or physical light/relay is connected.
       </p>
     </section>
   );
@@ -2178,7 +2191,7 @@ export default function GKBSite() {
                   : testDevice.project === 'fan-regulator'
                     ? <FanRegulatorDashboard mode="test" />
                     : testDevice.project === 'light-control'
-                      ? <LightControlDashboard mode="test" />
+                      ? <LightControlDashboard mode="test" device={testDevice} />
                 : testDevice.project === 'prepaid-energy-meter'
                   ? <PrepaidEnergyMeterDashboard mode="test" />
                 : <GenericDeviceDashboard device={testDevice} mode="test" />}
@@ -2221,7 +2234,7 @@ export default function GKBSite() {
                       : selectedDevice.project === 'fan-regulator'
                         ? <FanRegulatorDashboard mode="service" />
                         : selectedDevice.project === 'light-control'
-                          ? <LightControlDashboard mode="service" />
+                          ? <LightControlDashboard mode="service" device={selectedDevice} />
                     : selectedDevice.project === 'prepaid-energy-meter'
                       ? <PrepaidEnergyMeterDashboard mode="service" />
                     : <GenericDeviceDashboard device={selectedDevice} mode="service" />}

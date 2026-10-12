@@ -38,10 +38,12 @@ Sign in to the portal and open **My Devices**:
 | GKB Smart Prepaid Energy Meter | `GKB-SPEM-0001` | Prepaid Energy Meter |
 | Smart Alcohol Breathalyzer System | `GKB-SAB-0001` | Alcohol Breathalyzer |
 | Smart Fan Regulator | `GKB-FAN-0001` | Fan Regulator |
-| Smart Light Control System | `GKB-LIGHT-0001` | Light Control |
+| Smart Light Control System v1 (4-channel) | `GKB-LIGHTv1-0001` | 4-light Control |
+| Smart Light Control System v2 (6-channel) | `GKB-LIGHTv2-0001` | 6-light Control |
+| Smart Light Control System v3 (8-channel) | `GKB-LIGHTv3-0001` | 8-light Control |
 
 The legacy Smart Water Tank key `GKB-WTR-4412` is also accepted.
-The previous combined fan/light demo key `GKB-SFLC-0001` remains accepted as an alias for the Smart Fan Regulator; link the Smart Light Control System separately with `GKB-LIGHT-0001`.
+The previous combined fan/light demo key `GKB-SFLC-0001` remains accepted as an alias for the Smart Fan Regulator. The generic light key `GKB-LIGHT-0001` remains accepted as an alias for the v1 4-channel light controller.
 
 ## Energy meter demo
 
@@ -59,7 +61,7 @@ The Smart Fan Regulator preview provides five fan settings (Off and Speeds 1-4) 
 
 ## Smart light control demo
 
-The Smart Light Control preview lets you add lights, choose 1-8 relays for each light, and independently switch every relay. A light's animated bulb turns on when any of its relays is on. Relay mappings, feed values, activity history, and ESP32, Adafruit IO, and Supabase statuses are simulated; no physical lights or cloud services are connected.
+The light controller key fixes the relay channel count: v1 has 4 channels, v2 has 6, and v3 has 8. Each channel controls one independently switched light; edit each light's name to identify it, and names are saved in the browser profile for that device. Animated bulbs reflect each relay state. Relay feeds, activity history, and ESP32, Adafruit IO, and Supabase statuses are simulated; no physical lights or cloud services are connected.
 
 ## Deployment
 
