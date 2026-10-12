@@ -7,7 +7,7 @@ import {
 } from 'lucide-react';
 
 type ServiceType = 'student-projects' | 'retail-gadgets';
-type StudentProject = 'fuel-tank-monitor' | 'water-tank-monitor' | 'prepaid-energy-meter';
+type StudentProject = 'fuel-tank-monitor' | 'water-tank-monitor' | 'prepaid-energy-meter' | 'alcohol-breathalyzer';
 
 type UserType = {
   role: 'admin' | 'client';
@@ -28,7 +28,8 @@ const defaultDevices: Device[] = [
   { id: 1, name: 'Smart Home Security System v1', key: 'GKB-SEC-9988', status: 'Online', lastAlert: 'Intrusion detected at Living Room (14:22 PM)' },
   { id: 2, name: 'Smart Water Tank Monitor', key: 'GKB-SWP-0001', legacyKeys: ['GKB-WTR-4412'], status: 'Online', lastAlert: 'Water level stable at 68%', project: 'water-tank-monitor' },
   { id: 3, name: 'Industrial Fuel Tank Monitor', key: 'GKB-IUFT-0001', status: 'Online', lastAlert: 'Fuel level stable at 72%', project: 'fuel-tank-monitor' },
-  { id: 4, name: 'GKB Smart Prepaid Energy Meter', key: 'GKB-SPEM-0001', status: 'Online', lastAlert: 'Meter secure · balance GHS 24.50', project: 'prepaid-energy-meter' }
+  { id: 4, name: 'GKB Smart Prepaid Energy Meter', key: 'GKB-SPEM-0001', status: 'Online', lastAlert: 'Meter secure · balance GHS 24.50', project: 'prepaid-energy-meter' },
+  { id: 5, name: 'Smart Alcohol Breathalyzer System', key: 'GKB-SAB-0001', status: 'Online', lastAlert: 'Alcohol level clear · demo', project: 'alcohol-breathalyzer' }
 ];
 
 type Complaint = {
@@ -539,6 +540,229 @@ function WaterTankMonitorDashboard({ mode }: { mode: 'test' | 'service' }) {
 
       <p role="status" className="rounded-xl border border-amber-500/20 bg-amber-500/5 px-4 py-3 text-xs leading-relaxed text-amber-200">
         {mode === 'test' ? 'Test preview:' : 'Service portal preview:'} all readings, alerts, connection states, and pump actions are simulated. They do not represent or control a physical tank; live monitoring requires a connected hardware service.
+      </p>
+    </section>
+  );
+}
+
+type BreathalyzerAlert = {
+  id: string;
+  title: string;
+  detail: string;
+  severity: 'info' | 'warning' | 'critical';
+};
+
+function AlcoholBreathalyzerDashboard({ mode }: { mode: 'test' | 'service' }) {
+  const [bac, setBac] = useState(0);
+  const [history, setHistory] = useState([0.01, 0, 0.02, 0.01, 0, 0]);
+  const [networkAvailable, setNetworkAvailable] = useState(true);
+  const [alerts, setAlerts] = useState<BreathalyzerAlert[]>([
+    { id: 'initial-clear', title: 'System ready', detail: 'Alcohol level clear · sample feed', severity: 'info' },
+    { id: 'initial-network', title: 'Device online', detail: 'Wi-Fi and MQTT connected · demo', severity: 'info' }
+  ]);
+  const risk = bac >= 0.08 ? 'high' : bac > 0 ? 'caution' : 'safe';
+  const status = risk === 'high' ? 'High alcohol detected' : risk === 'caution' ? 'Caution · alcohol detected' : 'Clear · no alcohol detected';
+  const statusColor = risk === 'high' ? '#f87171' : risk === 'caution' ? '#fbbf24' : '#34d399';
+  const bacPercent = Math.min(100, (bac / 0.2) * 100);
+
+  const recordAlert = (title: string, detail: string, severity: BreathalyzerAlert['severity'] = 'info') => {
+    setAlerts(current => [{ id: `${Date.now()}-${Math.random()}`, title, detail, severity }, ...current].slice(0, 6));
+  };
+
+  const updateReading = (value: number) => {
+    setBac(value);
+    setHistory(current => [...current.slice(-9), value]);
+    const nextRisk = value >= 0.08 ? 'high' : value > 0 ? 'caution' : 'safe';
+    const nextStatus = nextRisk === 'high'
+      ? 'High alcohol detected'
+      : nextRisk === 'caution'
+        ? 'Caution · alcohol detected'
+        : 'Clear · no alcohol detected';
+    recordAlert(
+      nextRisk === 'high' ? 'High alcohol warning' : nextRisk === 'caution' ? 'Alcohol level warning' : 'Reading clear',
+      `${value.toFixed(2)}% BAC · ${nextStatus}.`,
+      nextRisk === 'high' ? 'critical' : nextRisk === 'caution' ? 'warning' : 'info'
+    );
+  };
+
+  const toggleConnectivity = () => {
+    const next = !networkAvailable;
+    setNetworkAvailable(next);
+    recordAlert(
+      next ? 'Connectivity restored' : 'Connectivity lost',
+      next ? 'Wi-Fi and MQTT demo connections restored.' : 'Wi-Fi and MQTT demo connections unavailable.',
+      next ? 'info' : 'warning'
+    );
+  };
+
+  const chartPoints = history
+    .map((value, index) => `${20 + index * (600 / Math.max(1, history.length - 1))},${155 - (value / 0.2) * 125}`)
+    .join(' ');
+
+  return (
+    <section aria-labelledby="breathalyzer-title" className="space-y-5">
+      <style>{`
+        @keyframes gkb-breathalyzer-blink {
+          0%, 46%, 52%, 100% { transform: scaleY(1); }
+          49% { transform: scaleY(0.12); }
+        }
+        .breathalyzer-blink {
+          transform-box: fill-box;
+          transform-origin: center;
+          animation: gkb-breathalyzer-blink 3.8s infinite;
+        }
+      `}</style>
+      <header className="flex flex-col gap-4 rounded-2xl border border-cyan-500/20 bg-slate-900/80 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
+        <div>
+          <div className="mb-2 flex flex-wrap items-center gap-2">
+            <span className="rounded-full border border-cyan-400/30 bg-cyan-400/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.18em] text-cyan-300">
+              {mode === 'test' ? 'Private device test preview' : 'Service portal'}
+            </span>
+            <span className="rounded-full border border-amber-400/30 bg-amber-400/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-amber-300">
+              Simulated telemetry
+            </span>
+          </div>
+          <h2 id="breathalyzer-title" className="text-xl font-bold text-white sm:text-2xl">Smart Alcohol Breathalyzer System</h2>
+          <p className="mt-1 text-sm text-slate-400">MQ-3 alcohol level monitoring · OLED-style status · MQTT connectivity</p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <span className="inline-flex items-center gap-2 rounded-lg border border-emerald-500/20 bg-emerald-500/5 px-3 py-2 text-xs font-semibold text-emerald-300">
+            <span className="h-2 w-2 rounded-full bg-emerald-400" />Device online · demo
+          </span>
+          <span className={`inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-semibold ${networkAvailable ? 'border-cyan-500/20 bg-cyan-500/5 text-cyan-300' : 'border-amber-500/30 bg-amber-500/5 text-amber-200'}`}>
+            <Wifi className="h-3.5 w-3.5" />Wi-Fi · {networkAvailable ? 'connected' : 'offline'} · demo
+          </span>
+          <span className={`inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-semibold ${networkAvailable ? 'border-violet-500/20 bg-violet-500/5 text-violet-300' : 'border-amber-500/30 bg-amber-500/5 text-amber-200'}`}>
+            <Radio className="h-3.5 w-3.5" />MQTT · {networkAvailable ? 'connected' : 'disconnected'} · demo
+          </span>
+        </div>
+      </header>
+
+      <div className="grid gap-5 lg:grid-cols-[0.9fr_1.1fr]">
+        <section aria-label="Breathalyzer status" className="flex flex-col items-center justify-center rounded-2xl border border-slate-800 bg-slate-900/70 p-6 text-center">
+          <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">OLED status avatar</p>
+          <div
+            role="img"
+            aria-label={risk === 'safe' ? 'Happy face, safe status' : risk === 'caution' ? 'Concerned face, caution status' : 'Alert face, high alcohol status'}
+            className={`mt-4 flex h-36 w-36 items-center justify-center rounded-full border-4 shadow-lg transition-all duration-500 ${risk === 'safe' ? 'animate-pulse border-emerald-400/50 bg-emerald-400/10 shadow-emerald-500/10' : risk === 'caution' ? 'animate-pulse border-amber-400/60 bg-amber-400/10 shadow-amber-500/10' : 'animate-pulse border-red-400/70 bg-red-400/10 shadow-red-500/20'}`}
+          >
+            <svg aria-hidden="true" viewBox="0 0 100 100" className="h-24 w-24">
+              <circle cx="50" cy="50" r="44" fill={risk === 'high' ? '#7f1d1d' : risk === 'caution' ? '#78350f' : '#064e3b'} />
+              <g className="breathalyzer-blink" fill="#f8fafc">
+                <ellipse cx="36" cy="41" rx="4.5" ry="6" />
+                <ellipse cx="64" cy="41" rx="4.5" ry="6" />
+              </g>
+              <path
+                d={risk === 'safe' ? 'M30 59 Q50 82 70 59' : risk === 'caution' ? 'M33 67 Q50 58 67 67' : 'M30 71 Q50 47 70 71'}
+                fill="none"
+                stroke="#f8fafc"
+                strokeLinecap="round"
+                strokeWidth="5"
+              />
+            </svg>
+          </div>
+          <p className={`mt-4 text-lg font-bold ${risk === 'high' ? 'text-red-300' : risk === 'caution' ? 'text-amber-300' : 'text-emerald-300'}`}>{status}</p>
+          <p className="mt-1 text-xs text-slate-400">Animated status mirrors the simulated OLED indicator.</p>
+        </section>
+
+        <section aria-label="Blood alcohol concentration" className="rounded-2xl border border-slate-800 bg-slate-900/70 p-6">
+          <div className="flex flex-col items-center gap-5 sm:flex-row sm:justify-around">
+            <div
+              role="progressbar"
+              aria-label="Blood alcohol concentration"
+              aria-valuemin={0}
+              aria-valuemax={0.2}
+              aria-valuenow={bac}
+              className="flex h-44 w-44 shrink-0 items-center justify-center rounded-full transition-all duration-500"
+              style={{ background: `conic-gradient(${statusColor} ${bacPercent}%, #1e293b ${bacPercent}% 100%)` }}
+            >
+              <div className="flex h-36 w-36 flex-col items-center justify-center rounded-full bg-slate-950">
+                <span className="text-3xl font-black text-white">{bac.toFixed(2)}%</span>
+                <span className="mt-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">BAC · demo</span>
+              </div>
+            </div>
+            <div className="w-full max-w-sm">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-xs font-medium uppercase tracking-wider text-slate-400">Alcohol Level feed</p>
+                  <p className={`mt-2 text-xl font-bold ${risk === 'high' ? 'text-red-300' : risk === 'caution' ? 'text-amber-300' : 'text-emerald-300'}`}>{status}</p>
+                </div>
+                <Activity className={`h-6 w-6 ${risk === 'high' ? 'text-red-300' : risk === 'caution' ? 'text-amber-300' : 'text-emerald-300'}`} />
+              </div>
+              <p className="mt-3 text-xs leading-relaxed text-slate-400">Demo bands only: clear at 0.00%, caution above 0.00%, and high at 0.08% BAC. These are not legal or medical thresholds.</p>
+            </div>
+          </div>
+          <label className="mt-6 block">
+            <span className="flex justify-between text-xs font-medium text-slate-300">
+              <span>Simulate Alcohol Level feed</span>
+              <span>{bac.toFixed(2)}% BAC</span>
+            </span>
+            <input
+              aria-label="Simulate alcohol level"
+              className="mt-3 w-full accent-cyan-400"
+              type="range"
+              min="0"
+              max="0.2"
+              step="0.01"
+              value={bac}
+              onChange={event => updateReading(Number(event.target.value))}
+            />
+            <span className="mt-1 flex justify-between text-[10px] text-slate-500"><span>0.00%</span><span>0.20% BAC · simulated</span></span>
+          </label>
+        </section>
+      </div>
+
+      <div className="grid gap-5 lg:grid-cols-2">
+        <section aria-label="Alcohol level history" className="rounded-2xl border border-slate-800 bg-slate-900/70 p-5 sm:p-6">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h3 className="font-semibold text-white">Alcohol level history</h3>
+              <p className="mt-1 text-xs text-slate-400">mq3-alcohol-level · recent sample readings</p>
+            </div>
+            <span className="rounded-lg border border-slate-700 bg-slate-950/60 px-3 py-1.5 text-[11px] text-slate-300">BAC (%) · demo</span>
+          </div>
+          <svg role="img" aria-label="Simulated alcohol level history chart" viewBox="0 0 640 180" className="mt-4 h-44 w-full overflow-visible">
+            <title>Simulated BAC history</title>
+            {[30, 70, 110, 150].map(y => <line key={y} x1="20" y1={y} x2="620" y2={y} stroke="#334155" strokeDasharray="4 6" />)}
+            <polyline points={chartPoints} fill="none" stroke={statusColor} strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
+            {history.map((value, index) => {
+              const x = 20 + index * (600 / Math.max(1, history.length - 1));
+              const y = 155 - (value / 0.2) * 125;
+              return <circle key={`${index}-${value}`} cx={x} cy={y} r="5" fill={statusColor} />;
+            })}
+          </svg>
+          <div className="flex justify-between text-[10px] text-slate-500"><span>Earlier samples</span><span>Latest · {bac.toFixed(2)}%</span></div>
+        </section>
+
+        <section aria-label="Breathalyzer alerts" className="rounded-2xl border border-slate-800 bg-slate-900/70 p-5 sm:p-6">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <h3 className="font-semibold text-white">Alerts & notifications</h3>
+              <p className="mt-1 text-xs text-slate-400">mq3-alert-trigger · recent demo events</p>
+            </div>
+            <AlertTriangle className={risk === 'high' ? 'h-5 w-5 text-red-300' : risk === 'caution' ? 'h-5 w-5 text-amber-300' : 'h-5 w-5 text-emerald-300'} />
+          </div>
+          <ul className="mt-4 space-y-2">
+            {alerts.map(alert => (
+              <li key={alert.id} className={`flex items-start gap-3 rounded-xl border p-3 ${alert.severity === 'critical' ? 'border-red-500/30 bg-red-500/5' : alert.severity === 'warning' ? 'border-amber-500/20 bg-amber-500/5' : 'border-slate-800 bg-slate-950/50'}`}>
+                <span className={`mt-1 h-2 w-2 shrink-0 rounded-full ${alert.severity === 'critical' ? 'bg-red-400' : alert.severity === 'warning' ? 'bg-amber-400' : 'bg-cyan-400'}`} />
+                <div>
+                  <p className="text-sm font-semibold text-slate-200">{alert.title}</p>
+                  <p className="mt-0.5 text-xs text-slate-400">{alert.detail}</p>
+                </div>
+              </li>
+            ))}
+          </ul>
+          {mode === 'test' && (
+            <button type="button" onClick={toggleConnectivity} className="mt-4 rounded-lg border border-amber-500/30 bg-amber-500/5 px-4 py-2 text-sm font-semibold text-amber-200 hover:bg-amber-500/10">
+              {networkAvailable ? 'Simulate connectivity problem' : 'Restore demo connectivity'}
+            </button>
+          )}
+        </section>
+      </div>
+
+      <p role="status" className="rounded-xl border border-amber-500/20 bg-amber-500/5 px-4 py-3 text-xs leading-relaxed text-amber-200">
+        {mode === 'test' ? 'Test dashboard:' : 'Service portal preview:'} BAC values, MQ-3 feed, alert trigger, chart, avatar, and Wi-Fi/MQTT status are simulated. This is not a medical device, does not determine fitness to drive, and is not connected to a physical sensor or MQTT broker. Do not use it to make safety decisions.
       </p>
     </section>
   );
@@ -1522,6 +1746,8 @@ export default function GKBSite() {
               ? <FuelTankMonitorDashboard mode="test" />
               : testDevice.project === 'water-tank-monitor'
                 ? <WaterTankMonitorDashboard mode="test" />
+                : testDevice.project === 'alcohol-breathalyzer'
+                  ? <AlcoholBreathalyzerDashboard mode="test" />
                 : testDevice.project === 'prepaid-energy-meter'
                   ? <PrepaidEnergyMeterDashboard mode="test" />
                 : <GenericDeviceDashboard device={testDevice} mode="test" />}
@@ -1559,6 +1785,8 @@ export default function GKBSite() {
                   ? <FuelTankMonitorDashboard mode="service" />
                   : selectedDevice.project === 'water-tank-monitor'
                     ? <WaterTankMonitorDashboard mode="service" />
+                    : selectedDevice.project === 'alcohol-breathalyzer'
+                      ? <AlcoholBreathalyzerDashboard mode="service" />
                     : selectedDevice.project === 'prepaid-energy-meter'
                       ? <PrepaidEnergyMeterDashboard mode="service" />
                     : <GenericDeviceDashboard device={selectedDevice} mode="service" />}

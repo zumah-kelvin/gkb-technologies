@@ -36,6 +36,7 @@ Sign in to the portal and open **My Devices**:
 | Smart Water Tank Monitor | `GKB-SWP-0001` | Smart Water Tank System |
 | Industrial Fuel Tank Monitor | `GKB-IUFT-0001` | Underground Fuel Tank Monitor |
 | GKB Smart Prepaid Energy Meter | `GKB-SPEM-0001` | Prepaid Energy Meter |
+| Smart Alcohol Breathalyzer System | `GKB-SAB-0001` | Alcohol Breathalyzer |
 
 The legacy Smart Water Tank key `GKB-WTR-4412` is also accepted.
 
@@ -44,6 +45,10 @@ The legacy Smart Water Tank key `GKB-WTR-4412` is also accepted.
 The Smart Prepaid Energy Meter dashboard includes sample electrical measurements, prepaid balance and RFID recharge examples, tamper/security states, alerts, and simulated relay control. The bulb and relay controls are near the top of the dashboard. The demo bulb follows the relay: ON displays 60 W and 0.26 A; OFF displays 0 W and 0.00 A.
 
 All device keys and dashboard behavior are for demonstration. Device linking is stored in the browser profile; readings, controls, alerts, and device states are simulated and do not connect to or control physical hardware.
+
+## Alcohol breathalyzer demo
+
+The breathalyzer preview provides an animated status face, sample BAC gauge, MQ-3 feed history, `mq3-alert-trigger` alerts, and simulated Wi-Fi/MQTT status. Use the range slider to simulate readings and update the chart and alerts. Its sample status bands are illustrative only, not legal or medical thresholds. This preview is not a medical device, does not determine fitness to drive, and must not be used to make safety decisions.
 
 ## Deployment
 
