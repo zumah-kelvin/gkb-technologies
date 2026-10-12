@@ -38,12 +38,12 @@ Sign in to the portal and open **My Devices**:
 | GKB Smart Prepaid Energy Meter | `GKB-SPEM-0001` | Prepaid Energy Meter |
 | Smart Alcohol Breathalyzer System | `GKB-SAB-0001` | Alcohol Breathalyzer |
 | Smart Fan Regulator | `GKB-FAN-0001` | Fan Regulator |
-| Smart Light Control System v1 (4-channel) | `GKB-LIGHTv1-0001` | 4-light Control |
-| Smart Light Control System v2 (6-channel) | `GKB-LIGHTv2-0001` | 6-light Control |
-| Smart Light Control System v3 (8-channel) | `GKB-LIGHTv3-0001` | 8-light Control |
+| Smart Light Control System v1 (4-channel) | `GKB-LIGHT-0001V1` | 4-light Control |
+| Smart Light Control System v2 (6-channel) | `GKB-LIGHT-0001V2` | 6-light Control |
+| Smart Light Control System v3 (8-channel) | `GKB-LIGHT-0001V3` | 8-light Control |
 
 The legacy Smart Water Tank key `GKB-WTR-4412` is also accepted.
-The previous combined fan/light demo key `GKB-SFLC-0001` remains accepted as an alias for the Smart Fan Regulator. The generic light key `GKB-LIGHT-0001` remains accepted as an alias for the v1 4-channel light controller.
+The previous combined fan/light demo key `GKB-SFLC-0001` remains accepted as an alias for the Smart Fan Regulator. Older light keys `GKB-LIGHTV1-0001`, `GKB-LIGHTV2-0001`, and `GKB-LIGHTV3-0001` remain accepted; the generic light key `GKB-LIGHT-0001` remains an alias for the v1 4-channel light controller.
 
 ## Energy meter demo
 
