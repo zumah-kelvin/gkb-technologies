@@ -3,7 +3,7 @@ import {
   Cpu, Shield, Smartphone, Wrench, Phone, Mail, Globe, Camera,
   User, Lock, LogOut, PlusCircle, CheckCircle, AlertTriangle,
   Send, Server, Terminal, Activity, Layers, ArrowRight, CheckSquare, Square,
-  Sun, Moon, Zap, Wifi, Radio, Gauge, BatteryCharging, Lightbulb
+  Sun, Moon, Zap, Wifi, Radio, Gauge, BatteryCharging, Lightbulb, Pencil, Save, X
 } from 'lucide-react';
 
 type ServiceType = 'student-projects' | 'retail-gadgets';
@@ -779,8 +779,19 @@ type DeviceControlActivity = {
   timestamp: string;
 };
 
-function FanRegulatorDashboard({ mode }: { mode: 'test' | 'service' }) {
+function FanRegulatorDashboard({ mode, device }: { mode: 'test' | 'service'; device: Device }) {
   const [fanSpeed, setFanSpeed] = useState(0);
+  const [fanName, setFanName] = useState(() => {
+    try {
+      return window.localStorage.getItem(`gkb-fan-name:${device.key}`)?.trim() || 'Fan';
+    } catch (error) {
+      console.error('Unable to load the saved fan name.', error);
+      return 'Fan';
+    }
+  });
+  const [fanNameDraft, setFanNameDraft] = useState(fanName);
+  const [isEditingFanName, setIsEditingFanName] = useState(false);
+  const [fanNameSaveError, setFanNameSaveError] = useState('');
   const [connectionAvailable, setConnectionAvailable] = useState(true);
   const [activity, setActivity] = useState<DeviceControlActivity[]>([
     { id: 'initial-state', event: 'Fan regulator ready · fan off · all speed relays open', timestamp: 'Just now' }
@@ -798,6 +809,27 @@ function FanRegulatorDashboard({ mode }: { mode: 'test' | 'service' }) {
   const changeFanSpeed = (speed: number) => {
     setFanSpeed(speed);
     recordActivity(`Fan set to ${speed === 0 ? 'OFF' : `Speed ${speed}`} · fan-speed=${speed} · relay ${speed === 0 ? 'all OFF' : `${speed} ON, others OFF`}`);
+  };
+
+  const saveFanName = () => {
+    const nextName = fanNameDraft.trim() || 'Fan';
+    try {
+      window.localStorage.setItem(`gkb-fan-name:${device.key}`, nextName);
+      setFanName(nextName);
+      setFanNameDraft(nextName);
+      setFanNameSaveError('');
+      setIsEditingFanName(false);
+      recordActivity(`Fan name set to "${nextName}"`);
+    } catch (error) {
+      console.error('Unable to save the fan name.', error);
+      setFanNameSaveError('Could not save the fan name in this browser. Please try again.');
+    }
+  };
+
+  const cancelFanNameEdit = () => {
+    setFanNameDraft(fanName);
+    setFanNameSaveError('');
+    setIsEditingFanName(false);
   };
 
   const toggleConnection = () => {
@@ -878,7 +910,38 @@ function FanRegulatorDashboard({ mode }: { mode: 'test' | 'service' }) {
               </svg>
             </div>
             <div className="text-center sm:text-left">
-              <p className="text-xs font-medium uppercase tracking-wider text-slate-400">Current fan speed</p>
+              <div className="flex flex-wrap items-center justify-center gap-2 sm:justify-start">
+                {isEditingFanName ? (
+                  <>
+                    <input
+                      aria-label="Fan name"
+                      className="w-40 rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
+                      maxLength={40}
+                      value={fanNameDraft}
+                      onChange={event => setFanNameDraft(event.target.value)}
+                    />
+                    <button type="button" onClick={saveFanName} className="inline-flex items-center gap-1 rounded-lg bg-emerald-500/15 px-3 py-2 text-xs font-semibold text-emerald-300 hover:bg-emerald-500/25">
+                      <Save className="h-3.5 w-3.5" />Save
+                    </button>
+                    <button type="button" onClick={cancelFanNameEdit} className="inline-flex items-center gap-1 rounded-lg border border-slate-700 px-3 py-2 text-xs font-semibold text-slate-300 hover:text-white">
+                      <X className="h-3.5 w-3.5" />Cancel
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-xs font-medium uppercase tracking-wider text-slate-400">{fanName}</p>
+                    <button
+                      type="button"
+                      onClick={() => { setFanNameDraft(fanName); setIsEditingFanName(true); setFanNameSaveError(''); }}
+                      className="inline-flex items-center gap-1 rounded-lg border border-slate-700 px-2.5 py-1.5 text-xs font-semibold text-slate-300 hover:border-cyan-400/50 hover:text-cyan-200"
+                    >
+                      <Pencil className="h-3 w-3" />Edit
+                    </button>
+                  </>
+                )}
+              </div>
+              {fanNameSaveError && <p role="alert" className="mt-2 text-xs text-red-300">{fanNameSaveError}</p>}
+              <p className="mt-3 text-xs font-medium uppercase tracking-wider text-slate-400">Current fan speed</p>
               <p className={`mt-1 text-2xl font-bold ${fanSpeed ? 'text-cyan-300' : 'text-slate-300'}`}>{speedLabel}</p>
               <p className="mt-1 text-sm text-slate-400">{speedDescription} · fan-speed feed: {fanSpeed}</p>
               <p className="mt-2 text-xs text-slate-500">{fanSpeed ? 'Fan animation speed follows the selected level.' : 'Fan is stopped.'}</p>
@@ -1025,6 +1088,9 @@ function LightControlDashboard({ mode, device }: { mode: 'test' | 'service'; dev
       return defaults;
     }
   });
+  const [editingChannel, setEditingChannel] = useState<number | null>(null);
+  const [lightNameDraft, setLightNameDraft] = useState('');
+  const [lightNameSaveError, setLightNameSaveError] = useState('');
   const [connectionAvailable, setConnectionAvailable] = useState(true);
   const [activity, setActivity] = useState<DeviceControlActivity[]>([
     { id: 'initial-light-state', event: `Light controller ready · ${relayChannels}-channel · all lights off`, timestamp: 'Just now' }
@@ -1048,13 +1114,28 @@ function LightControlDashboard({ mode, device }: { mode: 'test' | 'service'; dev
     ].slice(0, 8));
   };
 
-  const renameLight = (channel: number, name: string) => {
-    setLights(current => current.map(light => light.channel === channel ? { ...light, name } : light));
+  const saveLightName = (channel: number) => {
+    const nextName = lightNameDraft.trim() || `Light ${channel}`;
+    const nextLights = lights.map(light => light.channel === channel ? { ...light, name: nextName } : light);
+    try {
+      window.localStorage.setItem(
+        `gkb-light-names:${device.key}`,
+        JSON.stringify(nextLights.map(light => light.name))
+      );
+      setLights(nextLights);
+      setEditingChannel(null);
+      setLightNameSaveError('');
+      recordActivity(`Relay ${channel} light name set to "${nextName}"`);
+    } catch (error) {
+      console.error(`Unable to save the name for relay ${channel}.`, error);
+      setLightNameSaveError(`Could not save the name for Relay ${channel}. Please try again.`);
+    }
   };
 
-  const saveLightName = (channel: number) => {
-    const light = lights.find(item => item.channel === channel);
-    if (light) recordActivity(`Relay ${channel} light name set to "${light.name.trim() || `Light ${channel}`}"`);
+  const cancelLightNameEdit = () => {
+    setEditingChannel(null);
+    setLightNameDraft('');
+    setLightNameSaveError('');
   };
 
   const toggleRelay = (channel: number) => {
@@ -1116,24 +1197,43 @@ function LightControlDashboard({ mode, device }: { mode: 'test' | 'service'; dev
                     <div className={`flex h-16 w-16 items-center justify-center rounded-full transition-all duration-500 ${lightOn ? 'animate-pulse bg-amber-300/15 text-amber-300 shadow-[0_0_28px_rgba(252,211,77,0.3)]' : 'bg-slate-950/70 text-slate-600'}`}>
                       <Lightbulb aria-hidden="true" className={`h-10 w-10 transition-all duration-500 ${lightOn ? 'fill-amber-200/40 drop-shadow-[0_0_10px_rgba(252,211,77,0.8)]' : ''}`} />
                     </div>
-                    <div>
+                    <div className="min-w-0">
                       <p className="text-xs font-medium uppercase tracking-wider text-slate-400">Relay {light.channel}</p>
-                      <p className={`mt-1 text-sm font-bold ${lightOn ? 'text-amber-300' : 'text-slate-400'}`}>{lightOn ? 'ON' : 'OFF'}</p>
+                      {editingChannel === light.channel ? (
+                        <input
+                          aria-label={`Name for Relay ${light.channel}`}
+                          className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
+                          maxLength={40}
+                          value={lightNameDraft}
+                          onChange={event => setLightNameDraft(event.target.value)}
+                        />
+                      ) : (
+                        <p className="mt-1 truncate font-semibold text-white">{light.name}</p>
+                      )}
+                      <p className={`mt-1 text-xs font-bold ${lightOn ? 'text-amber-300' : 'text-slate-400'}`}>{lightOn ? 'ON' : 'OFF'}</p>
                     </div>
                   </div>
+                  {editingChannel === light.channel ? (
+                    <div className="flex shrink-0 gap-2">
+                      <button type="button" onClick={() => saveLightName(light.channel)} className="inline-flex items-center gap-1 rounded-lg bg-emerald-500/15 px-3 py-2 text-xs font-semibold text-emerald-300 hover:bg-emerald-500/25">
+                        <Save className="h-3.5 w-3.5" />Save
+                      </button>
+                      <button type="button" onClick={cancelLightNameEdit} className="inline-flex items-center gap-1 rounded-lg border border-slate-700 px-3 py-2 text-xs font-semibold text-slate-300 hover:text-white">
+                        <X className="h-3.5 w-3.5" />Cancel
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => { setEditingChannel(light.channel); setLightNameDraft(light.name); setLightNameSaveError(''); }}
+                      className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-slate-700 px-3 py-2 text-xs font-semibold text-slate-300 hover:border-cyan-400/50 hover:text-cyan-200"
+                    >
+                      <Pencil className="h-3.5 w-3.5" />Edit
+                    </button>
+                  )}
                 </div>
 
-                <label className="mt-5 block">
-                  <span className="text-xs font-medium text-slate-300">Light name</span>
-                  <input
-                    aria-label={`Name for Relay ${light.channel}`}
-                    className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
-                    maxLength={40}
-                    value={light.name}
-                    onChange={event => renameLight(light.channel, event.target.value)}
-                    onBlur={() => saveLightName(light.channel)}
-                  />
-                </label>
+                {lightNameSaveError && editingChannel === light.channel && <p role="alert" className="mt-3 text-xs text-red-300">{lightNameSaveError}</p>}
 
                 <div className={`mt-4 flex items-center justify-between gap-3 rounded-xl border p-3 ${lightOn ? 'border-amber-400/25 bg-amber-400/[0.04]' : 'border-slate-800 bg-slate-950/60'}`}>
                   <div>
@@ -2192,7 +2292,7 @@ export default function GKBSite() {
                 : testDevice.project === 'alcohol-breathalyzer'
                   ? <AlcoholBreathalyzerDashboard mode="test" />
                   : testDevice.project === 'fan-regulator'
-                    ? <FanRegulatorDashboard mode="test" />
+                    ? <FanRegulatorDashboard mode="test" device={testDevice} />
                     : testDevice.project === 'light-control'
                       ? <LightControlDashboard mode="test" device={testDevice} />
                 : testDevice.project === 'prepaid-energy-meter'
@@ -2235,7 +2335,7 @@ export default function GKBSite() {
                     : selectedDevice.project === 'alcohol-breathalyzer'
                       ? <AlcoholBreathalyzerDashboard mode="service" />
                       : selectedDevice.project === 'fan-regulator'
-                        ? <FanRegulatorDashboard mode="service" />
+                        ? <FanRegulatorDashboard mode="service" device={selectedDevice} />
                         : selectedDevice.project === 'light-control'
                           ? <LightControlDashboard mode="service" device={selectedDevice} />
                     : selectedDevice.project === 'prepaid-energy-meter'

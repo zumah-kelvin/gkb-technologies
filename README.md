@@ -57,11 +57,11 @@ The breathalyzer preview provides an animated status face, sample BAC gauge, MQ-
 
 ## Smart fan regulator demo
 
-The Smart Fan Regulator preview provides five fan settings (Off and Speeds 1-4) with one simulated relay assigned to each speed. Selecting a speed energizes that speed's relay and switches the other speed relays off. The animated fan reflects the selected speed. Feed and connection states are simulated; no physical fan or cloud service is connected.
+The Smart Fan Regulator preview provides five fan settings (Off and Speeds 1-4) with one simulated relay assigned to each speed. Selecting a speed energizes that speed's relay and switches the other speed relays off. Use **Edit** beside the fan name to rename it, then **Save** or **Cancel**; the name is saved in the browser profile. The animated fan reflects the selected speed. Feed and connection states are simulated; no physical fan or cloud service is connected.
 
 ## Smart light control demo
 
-The light controller key fixes the relay channel count: v1 has 4 channels, v2 has 6, and v3 has 8. Each channel controls one independently switched light; edit each light's name to identify it, and names are saved in the browser profile for that device. Animated bulbs reflect each relay state. Relay feeds, activity history, and ESP32, Adafruit IO, and Supabase statuses are simulated; no physical lights or cloud services are connected.
+The light controller key fixes the relay channel count: v1 has 4 channels, v2 has 6, and v3 has 8. Each channel controls one independently switched light. Use **Edit** on a light, change its name, then **Save** or **Cancel**; saved names are kept in the browser profile for that device. Animated bulbs reflect each relay state. Relay feeds, activity history, and ESP32, Adafruit IO, and Supabase statuses are simulated; no physical lights or cloud services are connected.
 
 ## Deployment
 
