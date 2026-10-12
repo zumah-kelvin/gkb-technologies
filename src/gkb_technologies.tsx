@@ -660,59 +660,6 @@ function PrepaidEnergyMeterDashboard({ mode }: { mode: 'test' | 'service' }) {
         ))}
       </nav>
 
-      <section id="energy-section-0" aria-label="Energy overview" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <article id="energy-section-1" className={`rounded-2xl border p-5 ${lowBalance ? 'border-amber-500/40 bg-amber-500/[0.06]' : 'border-emerald-500/20 bg-emerald-500/[0.04]'}`}>
-          <div className="flex items-start justify-between gap-2">
-            <p className="text-xs font-medium uppercase tracking-wider text-slate-400">Prepaid balance</p>
-            <BatteryCharging className={`h-5 w-5 ${lowBalance ? 'text-amber-300' : 'text-emerald-300'}`} />
-          </div>
-          <p className="mt-3 text-3xl font-bold text-white">GHS {balance.toFixed(2)}</p>
-          <p className={`mt-2 text-xs font-semibold ${lowBalance ? 'text-amber-300' : 'text-emerald-300'}`}>
-            {lowBalance ? 'Low balance · below GHS 11.00' : 'Credit available'}
-          </p>
-        </article>
-        <article className="rounded-2xl border border-slate-800 bg-slate-900/70 p-5">
-          <p className="text-xs font-medium uppercase tracking-wider text-slate-400">Energy consumed</p>
-          <p className="mt-3 text-3xl font-bold text-white">18.42 <span className="text-sm font-medium text-slate-400">kWh</span></p>
-          <p className="mt-2 text-xs text-slate-500">Today · simulated PZEM reading</p>
-        </article>
-        <article className="rounded-2xl border border-slate-800 bg-slate-900/70 p-5">
-          <p className="text-xs font-medium uppercase tracking-wider text-slate-400">Meter status</p>
-          <p className={`mt-3 text-xl font-bold ${securityColor}`}>{tamperState === 'detected' ? 'Locked' : tamperState === 'maintenance' ? 'Maintenance' : 'Operational'}</p>
-          <p className="mt-2 text-xs text-slate-500">System {networkAvailable ? 'healthy' : 'connectivity degraded'} · simulated</p>
-        </article>
-        <article className="rounded-2xl border border-slate-800 bg-slate-900/70 p-5">
-          <p className="text-xs font-medium uppercase tracking-wider text-slate-400">Relay status</p>
-          <p className={`mt-3 text-xl font-bold ${relayActual ? 'text-emerald-300' : 'text-slate-300'}`}>{relayActual ? 'ON' : 'OFF'}</p>
-          <p className="mt-2 text-xs text-slate-500">{safetyCutoff ? 'Safety cutoff active' : 'Demo relay state'}</p>
-        </article>
-      </section>
-
-      <section id="energy-section-2" aria-label="Live electrical measurements">
-        <div className="mb-3">
-          <h3 className="text-lg font-bold text-white">Live measurements</h3>
-          <p className="mt-1 text-xs text-slate-400">PZEM-004T sample values · not live sensor data</p>
-        </div>
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-          {[
-            { name: 'Voltage', value: '230.4', unit: 'V', icon: Zap, color: 'text-amber-300' },
-            { name: 'Current', value: relayActual ? '0.26' : '0.00', unit: 'A', icon: Activity, color: 'text-cyan-300' },
-            { name: 'Power', value: String(bulbPower), unit: 'W', icon: Gauge, color: 'text-purple-300' },
-            { name: 'Energy', value: '18.42', unit: 'kWh', icon: BatteryCharging, color: 'text-emerald-300' },
-            { name: 'Frequency', value: '50.0', unit: 'Hz', icon: Activity, color: 'text-blue-300' },
-            { name: 'Power factor', value: '0.96', unit: 'PF', icon: Zap, color: 'text-pink-300' }
-          ].map(measurement => (
-            <article key={measurement.name} className="rounded-2xl border border-slate-800 bg-slate-900/70 p-4">
-              <div className="flex items-center justify-between">
-                <p className="text-xs font-medium uppercase tracking-wider text-slate-400">{measurement.name}</p>
-                <measurement.icon className={`h-4 w-4 ${measurement.color}`} />
-              </div>
-              <p className="mt-3 text-2xl font-bold text-white">{measurement.value} <span className="text-sm font-medium text-slate-400">{measurement.unit}</span></p>
-            </article>
-          ))}
-        </div>
-      </section>
-
       <div className="grid gap-5 lg:grid-cols-2">
         <section id="energy-section-3" aria-label="Power control" className="space-y-4 rounded-2xl border border-slate-800 bg-slate-900/70 p-5 sm:p-6">
           <div>
@@ -791,6 +738,59 @@ function PrepaidEnergyMeterDashboard({ mode }: { mode: 'test' | 'service' }) {
           </div>
         </section>
       </div>
+
+      <section id="energy-section-0" aria-label="Energy overview" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <article id="energy-section-1" className={`rounded-2xl border p-5 ${lowBalance ? 'border-amber-500/40 bg-amber-500/[0.06]' : 'border-emerald-500/20 bg-emerald-500/[0.04]'}`}>
+          <div className="flex items-start justify-between gap-2">
+            <p className="text-xs font-medium uppercase tracking-wider text-slate-400">Prepaid balance</p>
+            <BatteryCharging className={`h-5 w-5 ${lowBalance ? 'text-amber-300' : 'text-emerald-300'}`} />
+          </div>
+          <p className="mt-3 text-3xl font-bold text-white">GHS {balance.toFixed(2)}</p>
+          <p className={`mt-2 text-xs font-semibold ${lowBalance ? 'text-amber-300' : 'text-emerald-300'}`}>
+            {lowBalance ? 'Low balance · below GHS 11.00' : 'Credit available'}
+          </p>
+        </article>
+        <article className="rounded-2xl border border-slate-800 bg-slate-900/70 p-5">
+          <p className="text-xs font-medium uppercase tracking-wider text-slate-400">Energy consumed</p>
+          <p className="mt-3 text-3xl font-bold text-white">18.42 <span className="text-sm font-medium text-slate-400">kWh</span></p>
+          <p className="mt-2 text-xs text-slate-500">Today · simulated PZEM reading</p>
+        </article>
+        <article className="rounded-2xl border border-slate-800 bg-slate-900/70 p-5">
+          <p className="text-xs font-medium uppercase tracking-wider text-slate-400">Meter status</p>
+          <p className={`mt-3 text-xl font-bold ${securityColor}`}>{tamperState === 'detected' ? 'Locked' : tamperState === 'maintenance' ? 'Maintenance' : 'Operational'}</p>
+          <p className="mt-2 text-xs text-slate-500">System {networkAvailable ? 'healthy' : 'connectivity degraded'} · simulated</p>
+        </article>
+        <article className="rounded-2xl border border-slate-800 bg-slate-900/70 p-5">
+          <p className="text-xs font-medium uppercase tracking-wider text-slate-400">Relay status</p>
+          <p className={`mt-3 text-xl font-bold ${relayActual ? 'text-emerald-300' : 'text-slate-300'}`}>{relayActual ? 'ON' : 'OFF'}</p>
+          <p className="mt-2 text-xs text-slate-500">{safetyCutoff ? 'Safety cutoff active' : 'Demo relay state'}</p>
+        </article>
+      </section>
+
+      <section id="energy-section-2" aria-label="Live electrical measurements">
+        <div className="mb-3">
+          <h3 className="text-lg font-bold text-white">Live measurements</h3>
+          <p className="mt-1 text-xs text-slate-400">PZEM-004T sample values · not live sensor data</p>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          {[
+            { name: 'Voltage', value: '230.4', unit: 'V', icon: Zap, color: 'text-amber-300' },
+            { name: 'Current', value: relayActual ? '0.26' : '0.00', unit: 'A', icon: Activity, color: 'text-cyan-300' },
+            { name: 'Power', value: String(bulbPower), unit: 'W', icon: Gauge, color: 'text-purple-300' },
+            { name: 'Energy', value: '18.42', unit: 'kWh', icon: BatteryCharging, color: 'text-emerald-300' },
+            { name: 'Frequency', value: '50.0', unit: 'Hz', icon: Activity, color: 'text-blue-300' },
+            { name: 'Power factor', value: '0.96', unit: 'PF', icon: Zap, color: 'text-pink-300' }
+          ].map(measurement => (
+            <article key={measurement.name} className="rounded-2xl border border-slate-800 bg-slate-900/70 p-4">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-medium uppercase tracking-wider text-slate-400">{measurement.name}</p>
+                <measurement.icon className={`h-4 w-4 ${measurement.color}`} />
+              </div>
+              <p className="mt-3 text-2xl font-bold text-white">{measurement.value} <span className="text-sm font-medium text-slate-400">{measurement.unit}</span></p>
+            </article>
+          ))}
+        </div>
+      </section>
 
       <section id="energy-section-5" aria-label="Tamper and security monitoring" className={`space-y-4 rounded-2xl border p-5 sm:p-6 ${tamperState === 'detected' ? 'border-red-500/50 bg-red-950/30' : 'border-slate-800 bg-slate-900/70'}`}>
         <div className="flex flex-wrap items-center justify-between gap-3">
