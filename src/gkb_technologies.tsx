@@ -29,6 +29,268 @@ type Complaint = {
   date: string;
 };
 
+function FuelTankMonitorDashboard() {
+  return (
+    <section aria-labelledby="fuel-monitor-title" className="space-y-5">
+      <div className="flex flex-col gap-4 rounded-2xl border border-emerald-500/20 bg-slate-900/80 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
+        <div>
+          <div className="mb-2 flex flex-wrap items-center gap-2">
+            <span className="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.18em] text-emerald-300">
+              Student project · IoT
+            </span>
+            <span className="rounded-full border border-amber-400/30 bg-amber-400/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-amber-300">
+              Demo telemetry
+            </span>
+          </div>
+          <h2 id="fuel-monitor-title" className="text-xl font-bold text-white sm:text-2xl">
+            Underground Fuel Tank Monitor
+          </h2>
+          <p className="mt-1 text-sm text-slate-400">
+            Industrial tank overview <span className="px-1 text-slate-600">/</span> Station 01
+          </p>
+        </div>
+        <div className="flex items-center gap-3 rounded-xl border border-emerald-500/20 bg-emerald-500/5 px-4 py-3">
+          <span className="relative flex h-2.5 w-2.5">
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-40"></span>
+            <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-400"></span>
+          </span>
+          <div>
+            <p className="text-xs font-bold uppercase tracking-wider text-emerald-300">Online</p>
+            <p className="text-[11px] text-slate-400">Stale &gt;60 sec · offline if disconnected</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <article className="rounded-2xl border border-slate-800 bg-slate-900/70 p-5">
+          <div className="flex items-start justify-between">
+            <p className="text-xs font-medium uppercase tracking-wider text-slate-400">Fuel level</p>
+            <span className="text-xs text-emerald-300">+2.4% this week</span>
+          </div>
+          <div className="mt-3 flex items-baseline gap-1">
+            <span className="text-3xl font-bold tracking-tight text-white">72</span>
+            <span className="text-sm text-slate-400">%</span>
+          </div>
+          <div
+            role="progressbar"
+            aria-label="Fuel level"
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={72}
+            className="mt-4 h-2 overflow-hidden rounded-full bg-slate-800"
+          >
+            <div className="h-full w-[72%] rounded-full bg-gradient-to-r from-emerald-500 to-lime-300"></div>
+          </div>
+          <p className="mt-2 text-[11px] text-slate-500">Approx. 7,200 L of 10,000 L</p>
+        </article>
+
+        <article className="rounded-2xl border border-slate-800 bg-slate-900/70 p-5">
+          <p className="text-xs font-medium uppercase tracking-wider text-slate-400">Sensor distance</p>
+          <div className="mt-3 flex items-baseline gap-1">
+            <span className="text-3xl font-bold tracking-tight text-white">34.8</span>
+            <span className="text-sm text-slate-400">cm</span>
+          </div>
+          <p className="mt-4 flex items-center gap-2 text-[11px] text-slate-500">
+            <Activity className="h-3.5 w-3.5 text-cyan-400" />
+            Ultrasonic sensor · steady reading
+          </p>
+        </article>
+
+        <article className="rounded-2xl border border-emerald-500/20 bg-emerald-500/[0.04] p-5">
+          <p className="text-xs font-medium uppercase tracking-wider text-slate-400">Fuel condition</p>
+          <div className="mt-3 flex items-center gap-3">
+            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-400/10">
+              <CheckCircle className="h-5 w-5 text-emerald-400" />
+            </span>
+            <div>
+              <p className="text-lg font-bold text-emerald-300">OK</p>
+              <p className="text-[11px] text-slate-400">Above low-level threshold</p>
+            </div>
+          </div>
+          <div className="mt-3 flex flex-wrap gap-x-3 gap-y-1 text-[10px] font-medium">
+            <span className="text-emerald-300">● OK &gt;35%</span>
+            <span className="text-amber-300">● Low 20–35%</span>
+            <span className="text-red-300">● Critical ≤20%</span>
+          </div>
+        </article>
+
+        <article className="rounded-2xl border border-slate-800 bg-slate-900/70 p-5">
+          <p className="text-xs font-medium uppercase tracking-wider text-slate-400">Last update</p>
+          <div className="mt-3 flex items-center gap-3">
+            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-cyan-400/10">
+              <Server className="h-5 w-5 text-cyan-300" />
+            </span>
+            <div>
+              <p className="text-lg font-bold text-white">12 sec ago</p>
+              <p className="text-[11px] text-slate-400">Cloud sync · connected</p>
+            </div>
+          </div>
+          <p className="mt-3 text-[11px] text-slate-500">Freshness window: 60 seconds</p>
+        </article>
+      </div>
+
+      <div className="grid gap-5 xl:grid-cols-[1.35fr_0.9fr]">
+        <article className="rounded-2xl border border-slate-800 bg-slate-900/70 p-5 sm:p-6">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h3 className="font-semibold text-white">Fuel history</h3>
+              <p className="mt-1 text-xs text-slate-400">Sensor distance over the last 24 hours</p>
+            </div>
+            <span className="rounded-lg border border-slate-700 bg-slate-950/60 px-3 py-1.5 text-[11px] font-medium text-slate-300">
+              Last 24 hours
+            </span>
+          </div>
+          <div className="mt-5">
+            <div className="mb-2 flex items-baseline gap-2">
+              <span className="text-2xl font-bold text-white">34.8</span>
+              <span className="text-xs text-slate-400">cm · current distance</span>
+            </div>
+            <div className="overflow-hidden rounded-xl border border-slate-800 bg-slate-950/50 p-2 sm:p-4">
+              <svg
+                role="img"
+                aria-label="Line chart of sensor distance readings decreasing from 40 to 34.8 centimeters over 24 hours"
+                viewBox="0 0 640 200"
+                className="h-44 w-full"
+                preserveAspectRatio="none"
+              >
+                <defs>
+                  <linearGradient id="fuel-chart-fill" x1="0" x2="0" y1="0" y2="1">
+                    <stop offset="0%" stopColor="#34d399" stopOpacity="0.22" />
+                    <stop offset="100%" stopColor="#34d399" stopOpacity="0" />
+                  </linearGradient>
+                </defs>
+                {[30, 70, 110, 150].map(y => (
+                  <line key={y} x1="0" x2="640" y1={y} y2={y} stroke="#334155" strokeDasharray="4 6" />
+                ))}
+                <path
+                  d="M0 63 L91 51 L182 67 L273 78 L364 102 L455 94 L546 121 L640 132 L640 175 L0 175 Z"
+                  fill="url(#fuel-chart-fill)"
+                />
+                <path
+                  d="M0 63 L91 51 L182 67 L273 78 L364 102 L455 94 L546 121 L640 132"
+                  fill="none"
+                  stroke="#34d399"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="3"
+                  vectorEffect="non-scaling-stroke"
+                />
+                <circle cx="640" cy="132" r="5" fill="#34d399" stroke="#0f172a" strokeWidth="3" vectorEffect="non-scaling-stroke" />
+              </svg>
+              <div className="flex justify-between px-1 text-[10px] text-slate-500">
+                <span>00:00</span><span>06:00</span><span>12:00</span><span>18:00</span><span>Now</span>
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <article className="rounded-2xl border border-slate-800 bg-slate-900/70 p-5 sm:p-6">
+          <div>
+            <h3 className="font-semibold text-white">Tank visualization</h3>
+            <p className="mt-1 text-xs text-slate-400">Underground storage · 10,000 L capacity</p>
+          </div>
+          <div className="mt-5 flex min-h-48 items-center justify-center overflow-hidden rounded-xl border border-slate-800 bg-[radial-gradient(ellipse_at_center,_rgba(16,185,129,0.08),_transparent_70%)] p-4">
+            <svg role="img" aria-label="Underground fuel tank at 72 percent capacity" viewBox="0 0 360 180" className="h-40 w-full max-w-sm">
+              <defs>
+                <clipPath id="tank-clip">
+                  <rect x="40" y="39" width="280" height="102" rx="51" />
+                </clipPath>
+                <linearGradient id="tank-fuel" x1="0" x2="0" y1="0" y2="1">
+                  <stop offset="0%" stopColor="#6ee7b7" />
+                  <stop offset="100%" stopColor="#059669" />
+                </linearGradient>
+              </defs>
+              <line x1="22" x2="338" y1="147" y2="147" stroke="#475569" strokeDasharray="5 5" />
+              <rect x="40" y="39" width="280" height="102" rx="51" fill="#0f172a" stroke="#64748b" strokeWidth="3" />
+              <g clipPath="url(#tank-clip)">
+                <rect x="40" y="67" width="280" height="78" fill="url(#tank-fuel)" />
+                <path d="M40 68 Q65 62 90 68 T140 68 T190 68 T240 68 T290 68 T340 68" fill="none" stroke="#a7f3d0" strokeOpacity="0.8" strokeWidth="2" />
+              </g>
+              <rect x="174" y="15" width="12" height="25" rx="4" fill="#64748b" />
+              <path d="M180 4 V26" stroke="#22d3ee" strokeDasharray="3 3" strokeWidth="2" />
+              <circle cx="180" cy="29" r="4" fill="#22d3ee" />
+              <text x="180" y="104" fill="#f8fafc" fontSize="24" fontWeight="700" textAnchor="middle">72%</text>
+              <text x="180" y="124" fill="#d1fae5" fontSize="10" textAnchor="middle">7,200 L</text>
+              <text x="180" y="169" fill="#94a3b8" fontSize="10" textAnchor="middle">ULTRASONIC LEVEL SENSOR</text>
+            </svg>
+          </div>
+          <div className="mt-4 flex justify-between text-xs">
+            <span className="text-slate-400">Capacity used</span>
+            <span className="font-semibold text-emerald-300">7,200 / 10,000 L</span>
+          </div>
+        </article>
+      </div>
+
+      <div className="grid gap-5 lg:grid-cols-3">
+        <article className="rounded-2xl border border-lime-500/20 bg-slate-900/70 p-5">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="font-semibold text-white">LCD replica</h3>
+              <p className="mt-1 text-xs text-slate-400">Physical 20 × 4 character display</p>
+            </div>
+            <Smartphone className="h-4 w-4 text-lime-300" />
+          </div>
+          <div className="mt-4 rounded-lg border-4 border-slate-700 bg-[#162519] p-3 shadow-inner">
+            <div className="grid grid-cols-[1fr_auto] gap-x-2 font-mono text-[11px] leading-6 tracking-wide text-lime-300 sm:text-xs">
+              <span>TANK MONITOR</span><span>01</span>
+              <span>FUEL LEVEL</span><span>72%</span>
+              <span>DISTANCE</span><span>34.8cm</span>
+              <span>STATUS</span><span>FUEL OK</span>
+            </div>
+          </div>
+          <p className="mt-2 text-[10px] text-slate-500">Preview of the connected 20 × 4 LCD output</p>
+        </article>
+
+        <article className="rounded-2xl border border-slate-800 bg-slate-900/70 p-5">
+          <div>
+            <h3 className="font-semibold text-white">Alarm panel</h3>
+            <p className="mt-1 text-xs text-slate-400">Thresholds and connection warnings</p>
+          </div>
+          <div className="mt-4 space-y-2.5">
+            <div className="flex items-center justify-between gap-3 rounded-lg border border-red-500/15 bg-red-500/[0.04] px-3 py-2.5">
+              <span className="flex items-center gap-2 text-xs text-slate-300"><AlertTriangle className="h-4 w-4 text-red-400" />Critical fuel · ≤20%</span>
+              <span className="text-[10px] font-bold uppercase tracking-wider text-red-300">Clear</span>
+            </div>
+            <div className="flex items-center justify-between gap-3 rounded-lg border border-amber-500/15 bg-amber-500/[0.04] px-3 py-2.5">
+              <span className="flex items-center gap-2 text-xs text-slate-300"><AlertTriangle className="h-4 w-4 text-amber-400" />Low fuel · ≤35%</span>
+              <span className="text-[10px] font-bold uppercase tracking-wider text-amber-300">Armed</span>
+            </div>
+            <div className="flex items-center justify-between gap-3 rounded-lg border border-emerald-500/15 bg-emerald-500/[0.04] px-3 py-2.5">
+              <span className="flex items-center gap-2 text-xs text-slate-300"><Activity className="h-4 w-4 text-emerald-400" />Connection warning</span>
+              <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-300">Clear</span>
+            </div>
+          </div>
+        </article>
+
+        <article className="rounded-2xl border border-slate-800 bg-slate-900/70 p-5">
+          <div>
+            <h3 className="font-semibold text-white">Device diagnostics</h3>
+            <p className="mt-1 text-xs text-slate-400">Sensor and cloud health</p>
+          </div>
+          <dl className="mt-4 divide-y divide-slate-800">
+            <div className="flex items-center justify-between py-2.5 text-xs">
+              <dt className="text-slate-400">Ultrasonic sensor</dt><dd className="font-medium text-emerald-300">34.8 cm · stable</dd>
+            </div>
+            <div className="flex items-center justify-between py-2.5 text-xs">
+              <dt className="text-slate-400">Cloud connection</dt><dd className="font-medium text-emerald-300">Connected</dd>
+            </div>
+            <div className="flex items-center justify-between py-2.5 text-xs">
+              <dt className="text-slate-400">Last update</dt><dd className="font-medium text-slate-200">12 sec ago</dd>
+            </div>
+            <div className="flex items-center justify-between py-2.5 text-xs">
+              <dt className="text-slate-400">Controller</dt><dd className="font-medium text-slate-200">ESP32 · healthy</dd>
+            </div>
+          </dl>
+        </article>
+      </div>
+
+      <p className="rounded-xl border border-slate-800 bg-slate-900/40 px-4 py-3 text-xs leading-relaxed text-slate-400">
+        <span className="font-semibold text-slate-300">Prototype preview:</span> readings and connection states are sample data for this project UI and are not connected to a physical tank.
+      </p>
+    </section>
+  );
+}
+
 export default function GKBSite() {
   // Navigation & Authentication States
   const [activeTab, setActiveTab] = useState('about');
@@ -229,11 +491,11 @@ export default function GKBSite() {
           
           {/* Logo Brand */}
           <div className="flex min-w-0 items-center space-x-2 sm:space-x-3 cursor-pointer" onClick={() => setActiveTab('about')}>
-            <div className="w-10 h-10 rounded-lg bg-gradient-to-tr from-cyan-500 to-purple-600 p-[2px] shadow-[0_0_15px_rgba(6,182,212,0.5)]">
-              <div className="w-full h-full bg-slate-950 rounded-lg flex items-center justify-center">
-                <Cpu className="w-5 h-5 text-cyan-400 animate-pulse" />
-              </div>
-            </div>
+            <img
+              src="/gkb-company-logo.png"
+              alt="GKB Technologies company logo"
+              className="h-12 w-12 shrink-0 rounded-lg object-cover shadow-[0_0_15px_rgba(6,182,212,0.2)]"
+            />
             <div>
               <h1 className="truncate text-sm sm:text-lg font-black tracking-wider bg-gradient-to-r from-cyan-400 via-purple-300 to-purple-500 bg-clip-text text-transparent">
                 GKB TECHNOLOGIES
@@ -292,7 +554,7 @@ export default function GKBSite() {
       </header>
 
       {/* Main Content Sections */}
-      <main className="relative z-10 w-full flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+      <main className="relative z-10 w-full flex-1 max-w-[1536px] mx-auto px-3 sm:px-5 lg:px-6 py-8">
 
         {/* ================= ABOUT US TAB ================= */}
         {activeTab === 'about' && (
@@ -531,7 +793,7 @@ export default function GKBSite() {
 
         {/* ================= SERVICE PORTAL ================= */}
         {activeTab === 'service-portal' && user && selectedService && (
-          <div className="mx-auto max-w-4xl space-y-6 animate-fadeIn">
+          <div className={`mx-auto space-y-6 animate-fadeIn ${selectedService === 'student-projects' ? 'max-w-7xl' : 'max-w-4xl'}`}>
             <div className="rounded-2xl border border-cyan-500/30 bg-slate-900/70 p-6 sm:p-8">
               <p className="text-xs font-mono uppercase tracking-widest text-cyan-400">
                 Signed in as {user.email}
@@ -541,10 +803,12 @@ export default function GKBSite() {
               </h2>
               <p className="mt-2 text-sm text-slate-300">
                 {selectedService === 'student-projects'
-                  ? 'Your project service portal is ready. Contact GKB to discuss your project scope and payment details.'
+                  ? 'Explore the industrial fuel tank monitor prototype and its sample sensor dashboard below.'
                   : 'Browse your linked device dashboard and contact GKB to confirm gadget availability and pricing.'}
               </p>
             </div>
+
+            {selectedService === 'student-projects' && <FuelTankMonitorDashboard />}
 
             <section className="rounded-2xl border border-purple-500/30 bg-slate-900/60 p-6">
               <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
