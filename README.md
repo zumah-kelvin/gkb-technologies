@@ -1,23 +1,34 @@
-# React + Vite
+# GKB Technologies
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+GKB Technologies is a React and Vite web portal for student engineering projects, retail gadgets, and interactive previews of GKB IoT device dashboards.
 
-Currently, two official plugins are available:
+## Run locally
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+Requirements: Node.js and npm.
 
-## React Compiler
+```sh
+npm install
+npm run dev
+```
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+Create and preview a production build with:
 
-## Expanding the ESLint configuration
+```sh
+npm run build
+npm run preview
+```
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+Run the configured lint checks with `npm run lint`.
 
-## Demo device test keys
+## Device portal
 
-Sign in to the portal and open **My Devices**. Use **Test device** to preview a dashboard without linking a device, or enter a key below under **Link a purchased device**. Linking saves the device to that account's browser profile; open it from **Linked devices** to view its Service Portal dashboard.
+Sign in to the portal and open **My Devices**:
+
+- Choose **Test device** to preview a device dashboard without linking it.
+- Enter a key below under **Link a purchased device** to add a device to the current browser profile.
+- Open a linked device from **Linked devices** to view its Service Portal dashboard.
+
+### Demo device keys
 
 | Device | Special key | Dashboard |
 | --- | --- | --- |
@@ -26,4 +37,14 @@ Sign in to the portal and open **My Devices**. Use **Test device** to preview a 
 | Industrial Fuel Tank Monitor | `GKB-IUFT-0001` | Underground Fuel Tank Monitor |
 | GKB Smart Prepaid Energy Meter | `GKB-SPEM-0001` | Prepaid Energy Meter |
 
-The legacy Smart Water Tank key `GKB-WTR-4412` is also accepted. These are demo keys for the prototype, not credentials for connecting physical hardware. Dashboard readings, controls, and device states are simulated.
+The legacy Smart Water Tank key `GKB-WTR-4412` is also accepted.
+
+## Energy meter demo
+
+The Smart Prepaid Energy Meter dashboard includes sample electrical measurements, prepaid balance and RFID recharge examples, tamper/security states, alerts, and simulated relay control. The bulb and relay controls are near the top of the dashboard. The demo bulb follows the relay: ON displays 60 W and 0.26 A; OFF displays 0 W and 0.00 A.
+
+All device keys and dashboard behavior are for demonstration. Device linking is stored in the browser profile; readings, controls, alerts, and device states are simulated and do not connect to or control physical hardware.
+
+## Deployment
+
+The production site is hosted on Netlify and linked to this GitHub repository. Updates pushed to the configured deployment branch are published through Netlify's build and deploy pipeline.
