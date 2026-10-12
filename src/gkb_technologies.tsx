@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import type { Session } from '@supabase/supabase-js';
+import { relayControlEnabled, relaySupabase, relaySupabaseConfigError } from './supabase';
 import {
   Cpu, Shield, Smartphone, Wrench, Phone, Mail, Globe, Camera,
   User, Lock, LogOut, PlusCircle, CheckCircle, AlertTriangle,
@@ -48,6 +50,183 @@ type Complaint = {
 
 function RelayTestDashboard({ mode }: { mode: 'test' | 'service' }) {
   const [relayOn, setRelayOn] = useState(false);
+  const [relaySession, setRelaySession] = useState<Session | null>(null);
+  const [sessionLoading, setSessionLoading] = useState(mode === 'service');
+  const [authEmail, setAuthEmail] = useState('');
+  const [authPassword, setAuthPassword] = useState('');
+  const [creatingAccount, setCreatingAccount] = useState(false);
+  const [authBusy, setAuthBusy] = useState(false);
+  const [authMessage, setAuthMessage] = useState('');
+  const [authMessageIsError, setAuthMessageIsError] = useState(false);
+  const [relayBusy, setRelayBusy] = useState(false);
+  const [relayError, setRelayError] = useState('');
+  const [relayMessage, setRelayMessage] = useState('');
+  const [connectionState, setConnectionState] = useState<'connecting' | 'connected' | 'error'>('connecting');
+  const [lastSyncedAt, setLastSyncedAt] = useState<Date | null>(null);
+
+  useEffect(() => {
+    if (mode !== 'service') return;
+    if (!relaySupabase) {
+      setConnectionState('error');
+      setRelayError(relaySupabaseConfigError);
+      setSessionLoading(false);
+      return;
+    }
+
+    let disposed = false;
+    const { data: { subscription } } = relaySupabase.auth.onAuthStateChange((_event, session) => {
+      if (!disposed) {
+        setRelaySession(session);
+        setSessionLoading(false);
+        setAuthMessage('');
+      }
+    });
+
+    void relaySupabase.auth.getSession().then(({ data, error }) => {
+      if (disposed) return;
+      if (error) {
+        setAuthMessage(error.message);
+        setAuthMessageIsError(true);
+      }
+      setRelaySession(data.session);
+      setSessionLoading(false);
+    });
+
+    const readRelayState = async () => {
+      try {
+        const { data, error } = await relaySupabase
+          .from('relay_status')
+          .select('state, updated_at')
+          .eq('device_id', 'relay_01')
+          .maybeSingle();
+        if (disposed) return;
+        if (error) {
+          setConnectionState('error');
+          setRelayError(`Could not read relay_01 from Supabase: ${error.message}`);
+          return;
+        }
+        if (!data) {
+          setConnectionState('error');
+          setRelayError('No relay_01 row was returned. Check the database row and its read policy.');
+          return;
+        }
+        if (data.state !== 'ON' && data.state !== 'OFF') {
+          setConnectionState('error');
+          setRelayError(`Unexpected relay state returned by Supabase: ${String(data.state)}.`);
+          return;
+        }
+        setRelayOn(data.state === 'ON');
+        setLastSyncedAt(new Date());
+        setConnectionState('connected');
+        setRelayError('');
+      } catch (error) {
+        if (!disposed) {
+          setConnectionState('error');
+          setRelayError(error instanceof Error ? error.message : 'Unexpected error while reading relay state.');
+        }
+      }
+    };
+
+    void readRelayState();
+    const pollId = window.setInterval(() => void readRelayState(), 3000);
+    return () => {
+      disposed = true;
+      subscription.unsubscribe();
+      window.clearInterval(pollId);
+    };
+  }, [mode]);
+
+  const handleSupabaseAuth = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setAuthBusy(true);
+    setAuthMessage('');
+    setAuthMessageIsError(false);
+    if (!relaySupabase) {
+      setAuthMessage(relaySupabaseConfigError);
+      setAuthMessageIsError(true);
+      setAuthBusy(false);
+      return;
+    }
+    try {
+      if (creatingAccount) {
+        const { data, error } = await relaySupabase.auth.signUp({
+          email: authEmail.trim(),
+          password: authPassword
+        });
+        if (error) throw error;
+        setAuthMessage(data.session
+          ? 'Supabase account created and signed in.'
+          : 'Account created. Confirm your email if requested, then sign in.');
+        setAuthPassword('');
+      } else {
+        const { error } = await relaySupabase.auth.signInWithPassword({
+          email: authEmail.trim(),
+          password: authPassword
+        });
+        if (error) throw error;
+        setAuthMessage('Signed in to Supabase. Relay control is available only if this account owns relay_01.');
+        setAuthPassword('');
+      }
+    } catch (error) {
+      setAuthMessage(error instanceof Error ? error.message : 'Supabase authentication failed.');
+      setAuthMessageIsError(true);
+    } finally {
+      setAuthBusy(false);
+    }
+  };
+
+  const handleSupabaseSignOut = async () => {
+    if (!relaySupabase) return;
+    setAuthBusy(true);
+    setAuthMessage('');
+    try {
+      const { error } = await relaySupabase.auth.signOut();
+      if (error) throw error;
+      setAuthMessage('Signed out of Supabase.');
+    } catch (error) {
+      setAuthMessage(error instanceof Error ? error.message : 'Could not sign out of Supabase.');
+      setAuthMessageIsError(true);
+    } finally {
+      setAuthBusy(false);
+    }
+  };
+
+  const handleRelayToggle = async () => {
+    if (mode === 'test') {
+      setRelayOn(current => !current);
+      return;
+    }
+    if (!relayControlEnabled || !relaySupabase || !relaySession || relayBusy) return;
+
+    const nextState = relayOn ? 'OFF' : 'ON';
+    setRelayBusy(true);
+    setRelayError('');
+    setRelayMessage('');
+    try {
+      const { data, error } = await relaySupabase
+        .from('relay_status')
+        .update({ state: nextState, updated_at: new Date().toISOString() })
+        .eq('device_id', 'relay_01')
+        .select('state, updated_at')
+        .maybeSingle();
+      if (error) throw error;
+      if (!data) {
+        setRelayError('No row was updated. This Supabase account may not be authorized to control relay_01.');
+        return;
+      }
+      if (data.state !== 'ON' && data.state !== 'OFF') {
+        setRelayError(`Unexpected relay state returned after update: ${String(data.state)}.`);
+        return;
+      }
+      setRelayOn(data.state === 'ON');
+      setLastSyncedAt(new Date());
+      setRelayMessage(`Command saved as ${data.state}. The ESP32 polls every 3 seconds; its current firmware does not acknowledge the physical output.`);
+    } catch (error) {
+      setRelayError(error instanceof Error ? error.message : 'Could not send the relay command to Supabase.');
+    } finally {
+      setRelayBusy(false);
+    }
+  };
 
   return (
     <section aria-labelledby="relay-test-title" className="mx-auto max-w-4xl space-y-5">
@@ -65,10 +244,14 @@ function RelayTestDashboard({ mode }: { mode: 'test' | 'service' }) {
       `}</style>
       <header className="rounded-2xl border border-cyan-500/20 bg-slate-900/80 p-5 sm:p-6">
         <p className="text-xs font-bold uppercase tracking-[0.18em] text-cyan-300">
-          {mode === 'test' ? 'Private device test preview' : 'Service portal'} · simulated
+          {mode === 'test' ? 'Private device test preview · simulated' : 'Service portal · Supabase relay_01'}
         </p>
         <h2 id="relay-test-title" className="mt-2 text-xl font-bold text-white sm:text-2xl">Relay Test</h2>
-        <p className="mt-1 text-sm text-slate-400">Toggle the relay to start or stop the animated car wheels.</p>
+        <p className="mt-1 text-sm text-slate-400">
+          {mode === 'test'
+            ? 'Toggle the simulated relay to start or stop the animated car wheels.'
+            : 'The switch writes relay_01 to Supabase; the ESP32 polls the same row for its relay state.'}
+        </p>
       </header>
 
       <div className="grid gap-5 md:grid-cols-[1fr_auto]">
@@ -96,21 +279,96 @@ function RelayTestDashboard({ mode }: { mode: 'test' | 'service' }) {
         </section>
 
         <section aria-label="Relay switch control" className="flex min-w-56 flex-col items-center justify-center gap-4 rounded-2xl border border-slate-800 bg-slate-900/70 p-6">
-          <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Relay output</p>
+          <div className="flex items-center gap-2">
+            <span className={`h-2.5 w-2.5 rounded-full ${mode === 'test' ? 'bg-slate-500' : connectionState === 'connected' ? 'bg-emerald-400' : connectionState === 'error' ? 'bg-red-400' : 'bg-amber-400'}`} />
+            <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
+              {mode === 'test' ? 'Simulated relay' : connectionState === 'connected' ? 'Supabase connected' : connectionState === 'error' ? 'Supabase error' : 'Connecting to Supabase'}
+            </p>
+          </div>
+          <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Relay output · relay_01</p>
           <button
             type="button"
             role="switch"
             aria-label="Relay switch"
             aria-checked={relayOn}
-            onClick={() => setRelayOn(current => !current)}
-            className={`relative h-10 w-[4.5rem] rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 ${relayOn ? 'bg-emerald-500' : 'bg-slate-700'}`}
+            onClick={() => void handleRelayToggle()}
+            disabled={mode === 'service' && (!relayControlEnabled || !relaySupabase || !relaySession || relayBusy || connectionState !== 'connected')}
+            className={`relative h-10 w-[4.5rem] rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 disabled:cursor-not-allowed disabled:opacity-50 ${relayOn ? 'bg-emerald-500' : 'bg-slate-700'}`}
           >
             <span className={`absolute left-1 top-1 h-8 w-8 rounded-full bg-white shadow transition-transform ${relayOn ? 'translate-x-8' : 'translate-x-0'}`} />
           </button>
           <p className={`text-lg font-bold ${relayOn ? 'text-emerald-300' : 'text-slate-300'}`}>{relayOn ? 'ON' : 'OFF'}</p>
-          <p className="text-center text-xs leading-relaxed text-slate-500">Demo only · this switch does not control a physical relay or car.</p>
+          {mode === 'test' ? (
+            <p className="text-center text-xs leading-relaxed text-slate-500">Demo only · this switch does not control a physical relay or car.</p>
+          ) : (
+            <>
+              {lastSyncedAt && <p className="text-center text-xs text-slate-500">Last database sync: {lastSyncedAt.toLocaleTimeString()}</p>}
+              {relayError && <p role="alert" className="max-w-64 text-center text-xs leading-relaxed text-red-300">{relayError}</p>}
+              {relayMessage && <p role="status" className="max-w-64 text-center text-xs leading-relaxed text-emerald-200">{relayMessage}</p>}
+              {!relayControlEnabled && <p role="status" className="max-w-64 text-center text-xs leading-relaxed text-amber-200">Relay control is disabled. Apply the secure Supabase SQL setup first, then set VITE_RELAY_CONTROL_ENABLED=true in Netlify.</p>}
+              <p className="max-w-64 text-center text-xs leading-relaxed text-amber-200">
+                The animation follows the database state; this firmware does not confirm the physical relay output.
+              </p>
+            </>
+          )}
         </section>
       </div>
+
+      {mode === 'service' && (
+        <section aria-label="Supabase relay account" className="rounded-2xl border border-slate-800 bg-slate-900/70 p-5 sm:p-6">
+          {relaySession ? (
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-sm font-semibold text-white">Supabase signed in</p>
+                <p className="mt-1 text-xs text-slate-400">{relaySession.user.email}</p>
+                {authMessage && <p role={authMessageIsError ? 'alert' : 'status'} className={`mt-2 text-xs ${authMessageIsError ? 'text-red-300' : 'text-emerald-200'}`}>{authMessage}</p>}
+              </div>
+              <button type="button" onClick={() => void handleSupabaseSignOut()} disabled={authBusy} className="rounded-lg border border-slate-700 px-4 py-2 text-sm font-semibold text-slate-200 hover:border-cyan-400 disabled:opacity-50">
+                {authBusy ? 'Signing out…' : 'Sign out'}
+              </button>
+            </div>
+          ) : (
+            <>
+              <h3 className="text-sm font-semibold text-white">{creatingAccount ? 'Create a Supabase account' : 'Sign in to control this relay'}</h3>
+              <p className="mt-1 text-xs leading-relaxed text-slate-400">
+                This is Supabase authentication, separate from the demo portal login. Only the account assigned to relay_01 in the database can change its state.
+              </p>
+              {authMessage && <p role={authMessageIsError ? 'alert' : 'status'} className={`mt-3 rounded-lg px-3 py-2 text-xs ${authMessageIsError ? 'bg-red-500/10 text-red-300' : 'bg-emerald-500/10 text-emerald-200'}`}>{authMessage}</p>}
+              <form onSubmit={handleSupabaseAuth} className="mt-4 grid gap-3 sm:grid-cols-[1fr_1fr_auto]">
+                <label className="sr-only" htmlFor="relay-auth-email">Supabase email</label>
+                <input
+                  id="relay-auth-email"
+                  type="email"
+                  autoComplete="email"
+                  required
+                  value={authEmail}
+                  onChange={event => setAuthEmail(event.target.value)}
+                  placeholder="Supabase account email"
+                  className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white outline-none focus:border-cyan-400"
+                />
+                <label className="sr-only" htmlFor="relay-auth-password">Supabase password</label>
+                <input
+                  id="relay-auth-password"
+                  type="password"
+                  autoComplete={creatingAccount ? 'new-password' : 'current-password'}
+                  minLength={6}
+                  required
+                  value={authPassword}
+                  onChange={event => setAuthPassword(event.target.value)}
+                  placeholder="Password"
+                  className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white outline-none focus:border-cyan-400"
+                />
+                <button type="submit" disabled={authBusy || sessionLoading || !relaySupabase} className="rounded-lg bg-cyan-500 px-4 py-2 text-sm font-bold text-slate-950 hover:bg-cyan-400 disabled:opacity-50">
+                  {authBusy ? 'Working…' : creatingAccount ? 'Create account' : sessionLoading ? 'Loading…' : 'Sign in'}
+                </button>
+              </form>
+              <button type="button" onClick={() => { setCreatingAccount(current => !current); setAuthMessage(''); setAuthMessageIsError(false); }} className="mt-3 text-xs text-cyan-300 hover:text-cyan-200">
+                {creatingAccount ? 'Already registered? Sign in' : 'Need a Supabase account? Create one'}
+              </button>
+            </>
+          )}
+        </section>
+      )}
     </section>
   );
 }
@@ -2384,9 +2642,11 @@ export default function GKBSite() {
                 {selectedDevice?.name ?? (selectedService === 'student-projects' ? 'Student Project Solutions' : 'Retail Gadget Distribution')}
               </h2>
               <p className="mt-2 text-sm text-slate-300">
-                {selectedDevice
-                  ? 'Device service dashboard. Sample readings are shown until live hardware telemetry is connected.'
-                  : 'Select a saved device from My Devices to open its service dashboard.'}
+                 {selectedDevice?.project === 'relay-test'
+                   ? 'Relay state is synchronized through Supabase; physical relay output is not acknowledged by the current firmware.'
+                   : selectedDevice
+                     ? 'Device service dashboard. Sample readings are shown until live hardware telemetry is connected.'
+                     : 'Select a saved device from My Devices to open its service dashboard.'}
               </p>
             </div>
 

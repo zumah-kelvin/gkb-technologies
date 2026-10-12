@@ -68,6 +68,20 @@ The light controller key fixes the relay channel count: v1 has 4 channels, v2 ha
 
 Use the `GKB-RELAY-0001` test device to toggle a simulated relay. The car tires spin while the relay is on and stop when it is off. The switch and animation are a UI demo only; they do not control a physical relay or car.
 
+## Connecting Relay Test to Supabase and ESP32
+
+The linked `GKB-RELAY-0001` Service Portal dashboard can read the `public.relay_status` row for `device_id = relay_01`, sign in through Supabase Auth, and request an ON/OFF update. The private **Test device** preview remains simulated. The ESP32 can continue polling that row with its publishable key under a read-only anonymous policy.
+
+Before enabling physical relay control:
+
+1. Configure Netlify environment variables `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` (the Supabase publishable/legacy anon key). These browser values are public; never use the `service_role`/secret key. Leave `VITE_RELAY_CONTROL_ENABLED` unset or `false` for now.
+2. Run [`supabase/relay_status_setup.sql`](./supabase/relay_status_setup.sql) in the Supabase SQL Editor. It replaces all existing policies on this dedicated table, allows the ESP32 to read only the `relay_01` state, and restricts dashboard updates to its assigned Supabase Auth user.
+3. Sign up or sign in through the linked Relay Test dashboard. In the SQL Editor, assign that Auth user to the relay by running the commented `owner_id` update in the script with the same email address.
+4. Only after the SQL setup and owner assignment are complete, set `VITE_RELAY_CONTROL_ENABLED=true` in Netlify and redeploy. Without this explicit flag, the physical relay switch stays disabled.
+5. Use the linked device's **Service Portal** dashboard. It reads the database state every three seconds; changing the switch updates `relay_status.state`, which the ESP32 polls.
+
+The database value is the requested relay state, not hardware confirmation. The current ESP32 sketch does not acknowledge the actual output or report a heartbeat, so the dashboard cannot verify that the relay moved or that the device is online. The relay control remains unavailable until the Supabase row and policies are correctly configured. Never commit Wi-Fi passwords or device secrets; the Wi-Fi password previously shared in chat should be changed and updated on the ESP32 locally.
+
 ## Deployment
 
 The production site is hosted on Netlify and linked to this GitHub repository. Updates pushed to the configured deployment branch are published through Netlify's build and deploy pipeline.
