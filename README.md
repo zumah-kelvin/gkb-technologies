@@ -41,6 +41,7 @@ Sign in to the portal and open **My Devices**:
 | Smart Light Control System v1 (4-channel) | `GKB-LIGHT-0001V1` | 4-light Control |
 | Smart Light Control System v2 (6-channel) | `GKB-LIGHT-0001V2` | 6-light Control |
 | Smart Light Control System v3 (8-channel) | `GKB-LIGHT-0001V3` | 8-light Control |
+| Relay Test | `GKB-RELAY-0001` | Relay and animated car |
 
 The legacy Smart Water Tank key `GKB-WTR-4412` is also accepted.
 The previous combined fan/light demo key `GKB-SFLC-0001` remains accepted as an alias for the Smart Fan Regulator. Older light keys `GKB-LIGHTV1-0001`, `GKB-LIGHTV2-0001`, and `GKB-LIGHTV3-0001` remain accepted; the generic light key `GKB-LIGHT-0001` remains an alias for the v1 4-channel light controller.
@@ -62,6 +63,10 @@ The Smart Fan Regulator preview provides five fan settings (Off and Speeds 1-4) 
 ## Smart light control demo
 
 The light controller key fixes the relay channel count: v1 has 4 channels, v2 has 6, and v3 has 8. Each channel controls one independently switched light. Use **Edit** on a light, change its name, then **Save** or **Cancel**; saved names are kept in the browser profile for that device. Animated bulbs reflect each relay state. Relay feeds, activity history, and ESP32, Adafruit IO, and Supabase statuses are simulated; no physical lights or cloud services are connected.
+
+## Relay test demo
+
+Use the `GKB-RELAY-0001` test device to toggle a simulated relay. The car tires spin while the relay is on and stop when it is off. The switch and animation are a UI demo only; they do not control a physical relay or car.
 
 ## Deployment
 

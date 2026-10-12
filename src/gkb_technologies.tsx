@@ -7,7 +7,7 @@ import {
 } from 'lucide-react';
 
 type ServiceType = 'student-projects' | 'retail-gadgets';
-type StudentProject = 'fuel-tank-monitor' | 'water-tank-monitor' | 'prepaid-energy-meter' | 'alcohol-breathalyzer' | 'fan-regulator' | 'light-control';
+type StudentProject = 'fuel-tank-monitor' | 'water-tank-monitor' | 'prepaid-energy-meter' | 'alcohol-breathalyzer' | 'fan-regulator' | 'light-control' | 'relay-test';
 
 type UserType = {
   role: 'admin' | 'client';
@@ -34,7 +34,8 @@ const defaultDevices: Device[] = [
   { id: 6, name: 'Smart Fan Regulator', key: 'GKB-FAN-0001', legacyKeys: ['GKB-SFLC-0001'], status: 'Online', lastAlert: 'Fan off · all speed relays open · demo', project: 'fan-regulator' },
   { id: 7, name: 'Smart Light Control System v1 · 4-channel', key: 'GKB-LIGHT-0001V1', legacyKeys: ['GKB-LIGHTV1-0001', 'GKB-LIGHT-0001'], status: 'Online', lastAlert: 'All 4 lights off · demo', project: 'light-control', relayChannels: 4 },
   { id: 8, name: 'Smart Light Control System v2 · 6-channel', key: 'GKB-LIGHT-0001V2', legacyKeys: ['GKB-LIGHTV2-0001'], status: 'Online', lastAlert: 'All 6 lights off · demo', project: 'light-control', relayChannels: 6 },
-  { id: 9, name: 'Smart Light Control System v3 · 8-channel', key: 'GKB-LIGHT-0001V3', legacyKeys: ['GKB-LIGHTV3-0001'], status: 'Online', lastAlert: 'All 8 lights off · demo', project: 'light-control', relayChannels: 8 }
+  { id: 9, name: 'Smart Light Control System v3 · 8-channel', key: 'GKB-LIGHT-0001V3', legacyKeys: ['GKB-LIGHTV3-0001'], status: 'Online', lastAlert: 'All 8 lights off · demo', project: 'light-control', relayChannels: 8 },
+  { id: 10, name: 'Relay Test', key: 'GKB-RELAY-0001', status: 'Online', lastAlert: 'Relay off · car stationary · demo', project: 'relay-test' }
 ];
 
 type Complaint = {
@@ -44,6 +45,75 @@ type Complaint = {
   solved: boolean;
   date: string;
 };
+
+function RelayTestDashboard({ mode }: { mode: 'test' | 'service' }) {
+  const [relayOn, setRelayOn] = useState(false);
+
+  return (
+    <section aria-labelledby="relay-test-title" className="mx-auto max-w-4xl space-y-5">
+      <style>{`
+        @keyframes gkb-relay-wheel-spin {
+          to { transform: rotate(360deg); }
+        }
+        .relay-car-wheel {
+          transform-box: fill-box;
+          transform-origin: center;
+        }
+        .relay-car-wheel.is-running {
+          animation: gkb-relay-wheel-spin 0.45s linear infinite;
+        }
+      `}</style>
+      <header className="rounded-2xl border border-cyan-500/20 bg-slate-900/80 p-5 sm:p-6">
+        <p className="text-xs font-bold uppercase tracking-[0.18em] text-cyan-300">
+          {mode === 'test' ? 'Private device test preview' : 'Service portal'} · simulated
+        </p>
+        <h2 id="relay-test-title" className="mt-2 text-xl font-bold text-white sm:text-2xl">Relay Test</h2>
+        <p className="mt-1 text-sm text-slate-400">Toggle the relay to start or stop the animated car wheels.</p>
+      </header>
+
+      <div className="grid gap-5 md:grid-cols-[1fr_auto]">
+        <section aria-label="Animated car relay output" className={`flex min-h-64 flex-col items-center justify-center rounded-2xl border p-6 transition-colors ${relayOn ? 'border-emerald-400/30 bg-emerald-400/[0.04]' : 'border-slate-800 bg-slate-900/70'}`}>
+          <svg role="img" aria-label={relayOn ? 'Car with spinning tires' : 'Stationary car with stopped tires'} viewBox="0 0 440 220" className="w-full max-w-lg">
+            <line x1="35" y1="183" x2="405" y2="183" stroke="#475569" strokeWidth="5" strokeLinecap="round" />
+            <path d="M96 145 L123 102 Q133 86 157 83 L259 83 Q279 85 295 105 L328 123 L356 132 Q369 138 371 153 L371 169 L83 169 L83 154 Q84 147 96 145Z" fill={relayOn ? '#0891b2' : '#475569'} stroke={relayOn ? '#67e8f9' : '#94a3b8'} strokeWidth="5" strokeLinejoin="round" />
+            <path d="M143 101 Q150 93 163 93 L201 93 L201 121 L128 121Z" fill="#bae6fd" opacity="0.9" />
+            <path d="M213 93 L255 93 Q267 95 277 108 L286 121 L213 121Z" fill="#bae6fd" opacity="0.9" />
+            <rect x="91" y="145" width="20" height="10" rx="5" fill="#fde68a" />
+            <rect x="342" y="145" width="17" height="10" rx="5" fill="#fca5a5" />
+            {[145, 315].map(x => (
+              <g key={x} transform={`translate(${x} 166)`}>
+                <g className={`relay-car-wheel${relayOn ? ' is-running' : ''}`}>
+                  <circle r="28" fill="#0f172a" stroke="#cbd5e1" strokeWidth="5" />
+                  <circle r="9" fill="#94a3b8" />
+                  <path d="M0 -19 L0 -10 M19 0 L10 0 M0 19 L0 10 M-19 0 L-10 0" stroke="#e2e8f0" strokeWidth="4" strokeLinecap="round" />
+                </g>
+              </g>
+            ))}
+          </svg>
+          <p className={`mt-2 text-sm font-semibold ${relayOn ? 'text-emerald-300' : 'text-slate-400'}`}>
+            {relayOn ? 'Relay ON · tires spinning' : 'Relay OFF · car stationary'}
+          </p>
+        </section>
+
+        <section aria-label="Relay switch control" className="flex min-w-56 flex-col items-center justify-center gap-4 rounded-2xl border border-slate-800 bg-slate-900/70 p-6">
+          <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Relay output</p>
+          <button
+            type="button"
+            role="switch"
+            aria-label="Relay switch"
+            aria-checked={relayOn}
+            onClick={() => setRelayOn(current => !current)}
+            className={`relative h-10 w-[4.5rem] rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 ${relayOn ? 'bg-emerald-500' : 'bg-slate-700'}`}
+          >
+            <span className={`absolute top-1 h-8 w-8 rounded-full bg-white shadow transition-transform ${relayOn ? 'translate-x-10' : 'translate-x-1'}`} />
+          </button>
+          <p className={`text-lg font-bold ${relayOn ? 'text-emerald-300' : 'text-slate-300'}`}>{relayOn ? 'ON' : 'OFF'}</p>
+          <p className="text-center text-xs leading-relaxed text-slate-500">Demo only · this switch does not control a physical relay or car.</p>
+        </section>
+      </div>
+    </section>
+  );
+}
 
 function FuelTankMonitorDashboard({ mode }: { mode: 'test' | 'service' }) {
   return (
@@ -2287,6 +2357,8 @@ export default function GKBSite() {
             </button>
             {testDevice.project === 'fuel-tank-monitor'
               ? <FuelTankMonitorDashboard mode="test" />
+              : testDevice.project === 'relay-test'
+                ? <RelayTestDashboard mode="test" />
               : testDevice.project === 'water-tank-monitor'
                 ? <WaterTankMonitorDashboard mode="test" />
                 : testDevice.project === 'alcohol-breathalyzer'
@@ -2330,6 +2402,8 @@ export default function GKBSite() {
                 </button>
                 {selectedDevice.project === 'fuel-tank-monitor'
                   ? <FuelTankMonitorDashboard mode="service" />
+                  : selectedDevice.project === 'relay-test'
+                    ? <RelayTestDashboard mode="service" />
                   : selectedDevice.project === 'water-tank-monitor'
                     ? <WaterTankMonitorDashboard mode="service" />
                     : selectedDevice.project === 'alcohol-breathalyzer'
