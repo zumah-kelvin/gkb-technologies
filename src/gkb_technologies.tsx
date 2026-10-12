@@ -3,7 +3,7 @@ import {
   Cpu, Shield, Smartphone, Wrench, Phone, Mail, Globe, Camera,
   User, Lock, LogOut, PlusCircle, CheckCircle, AlertTriangle, 
   Send, Server, Terminal, Activity, Layers, ArrowRight, CheckSquare, Square,
-  Sun, Moon, CreditCard
+  Sun, Moon
 } from 'lucide-react';
 
 type ServiceType = 'student-projects' | 'retail-gadgets';
@@ -23,6 +23,12 @@ type Device = {
   project?: StudentProject;
 };
 
+const defaultDevices: Device[] = [
+  { id: 1, name: 'Smart Home Security System v1', key: 'GKB-SEC-9988', status: 'Online', lastAlert: 'Intrusion detected at Living Room (14:22 PM)' },
+  { id: 2, name: 'Smart Water Tank Monitor', key: 'GKB-WTR-4412', status: 'Standby', lastAlert: 'Water level stable at 85%' },
+  { id: 3, name: 'Industrial Fuel Tank Monitor', key: 'GKB-IUFT-0001', status: 'Online', lastAlert: 'Fuel level stable at 72%', project: 'fuel-tank-monitor' }
+];
+
 type Complaint = {
   id: number;
   clientEmail: string;
@@ -31,17 +37,17 @@ type Complaint = {
   date: string;
 };
 
-function FuelTankMonitorDashboard() {
+function FuelTankMonitorDashboard({ mode }: { mode: 'test' | 'service' }) {
   return (
     <section aria-labelledby="fuel-monitor-title" className="space-y-5">
       <div className="flex flex-col gap-4 rounded-2xl border border-emerald-500/20 bg-slate-900/80 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
         <div>
           <div className="mb-2 flex flex-wrap items-center gap-2">
             <span className="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.18em] text-emerald-300">
-              Student project · IoT
+              {mode === 'test' ? 'Device test preview' : 'Service portal'}
             </span>
             <span className="rounded-full border border-amber-400/30 bg-amber-400/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-amber-300">
-              Demo telemetry
+              Simulated values
             </span>
           </div>
           <h2 id="fuel-monitor-title" className="text-xl font-bold text-white sm:text-2xl">
@@ -57,8 +63,8 @@ function FuelTankMonitorDashboard() {
             <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-400"></span>
           </span>
           <div>
-            <p className="text-xs font-bold uppercase tracking-wider text-emerald-300">Online</p>
-            <p className="text-[11px] text-slate-400">Stale &gt;60 sec · offline if disconnected</p>
+            <p className="text-xs font-bold uppercase tracking-wider text-amber-300">Preview only</p>
+            <p className="text-[11px] text-slate-400">Hardware telemetry is not connected</p>
           </div>
         </div>
       </div>
@@ -287,7 +293,36 @@ function FuelTankMonitorDashboard() {
       </div>
 
       <p className="rounded-xl border border-slate-800 bg-slate-900/40 px-4 py-3 text-xs leading-relaxed text-slate-400">
-        <span className="font-semibold text-slate-300">Prototype preview:</span> readings and connection states are sample data for this project UI and are not connected to a physical tank.
+        <span className="font-semibold text-slate-300">{mode === 'test' ? 'Test preview:' : 'Service portal preview:'}</span> all readings are simulated sample data. Live hardware monitoring and controls require a connected device service.
+      </p>
+    </section>
+  );
+}
+
+function GenericDeviceDashboard({ device, mode }: { device: Device; mode: 'test' | 'service' }) {
+  return (
+    <section className="space-y-5">
+      <header className="rounded-2xl border border-cyan-500/30 bg-slate-900/80 p-6">
+        <p className="text-xs font-bold uppercase tracking-wider text-cyan-300">
+          {mode === 'test' ? 'Private device test preview' : 'Service portal'}
+        </p>
+        <h2 className="mt-2 text-2xl font-bold text-white">{device.name}</h2>
+        <p className="mt-2 text-sm text-slate-400">Sample dashboard · live hardware data is not connected</p>
+      </header>
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {[
+          { label: 'Device state', value: 'Sample · standby' },
+          { label: 'Last sample', value: device.lastAlert },
+          { label: 'Connection', value: 'Not connected' }
+        ].map(item => (
+          <article key={item.label} className="rounded-2xl border border-slate-800 bg-slate-900/70 p-5">
+            <p className="text-xs font-medium uppercase tracking-wider text-slate-400">{item.label}</p>
+            <p className="mt-3 font-semibold text-white">{item.value}</p>
+          </article>
+        ))}
+      </div>
+      <p role="status" className="rounded-xl border border-amber-500/20 bg-amber-500/5 px-4 py-3 text-xs leading-relaxed text-amber-200">
+        This dashboard is a UI preview only. Live telemetry, device commands, and controls are unavailable until a hardware API is connected.
       </p>
     </section>
   );
@@ -305,19 +340,19 @@ export default function GKBSite() {
   const [loginPassword, setLoginPassword] = useState('');
   const [loginError, setLoginError] = useState('');
   const [selectedService, setSelectedService] = useState<ServiceType | null>(null);
-  const [selectedStudentProject, setSelectedStudentProject] = useState<StudentProject | null>(null);
-  const [demoPaymentComplete, setDemoPaymentComplete] = useState(false);
+  const [selectedDevice, setSelectedDevice] = useState<Device | null>(null);
+  const [testDevice, setTestDevice] = useState<Device | null>(null);
 
   // Admin / Client Dynamic App Data
-  const [devices, setDevices] = useState<Device[]>([
-    { id: 1, name: 'Smart Home Security System v1', key: 'GKB-SEC-9988', status: 'Online', lastAlert: 'Intrusion detected at Living Room (14:22 PM)' },
-    { id: 2, name: 'Smart Water Tank Monitor', key: 'GKB-WTR-4412', status: 'Standby', lastAlert: 'Water level stable at 85%' },
-    { id: 3, name: 'Industrial Fuel Tank Monitor', key: 'GKB-IUFT-0001', status: 'Online', lastAlert: 'Fuel level stable at 72%', project: 'fuel-tank-monitor' }
-  ]);
+  const [devices, setDevices] = useState<Device[]>(() => {
+    const storedDevices = window.localStorage.getItem('gkb-devices');
+    return storedDevices ? JSON.parse(storedDevices) as Device[] : defaultDevices;
+  });
 
   const [linkedDevices, setLinkedDevices] = useState<Device[]>([]);
   const [inputKey, setInputKey] = useState('');
   const [linkMessage, setLinkMessage] = useState('');
+  const [linkMessageIsError, setLinkMessageIsError] = useState(false);
 
   // Admin New Device Form
   const [newDevName, setNewDevName] = useState('');
@@ -343,8 +378,7 @@ export default function GKBSite() {
 
     // Check Admin credentials
     if (loginEmail.trim() === 'zumkel023@gmail.com' && loginPassword === '123456789') {
-      setUser({ role: 'admin', email: loginEmail });
-      setActiveTab(selectedService ? 'service-portal' : 'devices');
+      activateUser({ role: 'admin', email: loginEmail });
       setLoginModalOpen(false);
       clearInputs();
       return;
@@ -352,8 +386,7 @@ export default function GKBSite() {
 
     // Check Client / Google Login simulation
     if (loginEmail.includes('@') && loginPassword.length >= 6) {
-      setUser({ role: 'client', email: loginEmail });
-      setActiveTab(selectedService ? 'service-portal' : 'devices');
+      activateUser({ role: 'client', email: loginEmail });
       setLoginModalOpen(false);
       clearInputs();
       return;
@@ -363,23 +396,35 @@ export default function GKBSite() {
   };
 
   const handleGoogleMockLogin = () => {
-    setUser({ role: 'client', email: 'google.client.user@gmail.com' });
-    setActiveTab(selectedService ? 'service-portal' : 'devices');
+    activateUser({ role: 'client', email: 'google.client.user@gmail.com' });
     setLoginModalOpen(false);
+  };
+
+  const activateUser = (account: UserType) => {
+    setUser(account);
+    setActiveTab(selectedService ? 'service-portal' : 'devices');
+    try {
+      const savedLinks = window.localStorage.getItem(`gkb-linked-devices:${account.email.trim().toLowerCase()}`);
+      setLinkedDevices(savedLinks ? JSON.parse(savedLinks) as Device[] : []);
+    } catch (error) {
+      console.error('Unable to load this account’s linked devices from browser storage.', error);
+      setLinkedDevices([]);
+      setLinkMessage('Saved devices could not be loaded from this browser.');
+      setLinkMessageIsError(true);
+    }
   };
 
   const handleLogout = () => {
     setUser(null);
     setActiveTab('about');
     setSelectedService(null);
-    setSelectedStudentProject(null);
-    setDemoPaymentComplete(false);
+    setSelectedDevice(null);
+    setTestDevice(null);
   };
 
   const handleServiceSelect = (service: ServiceType) => {
     setSelectedService(service);
-    setSelectedStudentProject(null);
-    setDemoPaymentComplete(false);
+    setSelectedDevice(null);
     if (user) {
       setActiveTab('service-portal');
     } else {
@@ -396,22 +441,31 @@ export default function GKBSite() {
   // Device Linking action for Client
   const handleLinkDevice = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    const found = devices.find((d: Device) => d.key === inputKey.trim());
+    setLinkMessage('');
+    setLinkMessageIsError(false);
+    const found = devices.find((d: Device) => d.key.toUpperCase() === inputKey.trim().toUpperCase());
     if (found) {
       if (!linkedDevices.some((d: Device) => d.key === found.key)) {
-        setLinkedDevices([...linkedDevices, found]);
-        setLinkMessage(`Success! Device "${found.name}" linked to your portal.`);
-        if (found.project === 'fuel-tank-monitor') {
-          setSelectedService('student-projects');
-          setSelectedStudentProject(found.project);
-          setDemoPaymentComplete(false);
-          setActiveTab('service-portal');
+        const nextLinkedDevices = [...linkedDevices, found];
+        setLinkedDevices(nextLinkedDevices);
+        try {
+          window.localStorage.setItem(
+            `gkb-linked-devices:${user?.email.trim().toLowerCase()}`,
+            JSON.stringify(nextLinkedDevices)
+          );
+          setLinkMessage(`"${found.name}" is linked and saved to this browser profile. Open it from Linked devices when you’re ready.`);
+        } catch (error) {
+          console.error('Unable to save linked device to browser storage.', error);
+          setLinkMessage(`"${found.name}" is linked for this session, but could not be saved to this browser.`);
+          setLinkMessageIsError(true);
         }
       } else {
         setLinkMessage('Device is already linked to your account.');
+        setLinkMessageIsError(true);
       }
     } else {
       setLinkMessage('Invalid Device Special Key. Check with Admin.');
+      setLinkMessageIsError(true);
     }
     setInputKey('');
   };
@@ -420,8 +474,21 @@ export default function GKBSite() {
   const handleCreateDevice = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!newDevName || !newDevKey) return;
+    if (devices.some(device => device.key.toUpperCase() === newDevKey.trim().toUpperCase())) {
+      setLinkMessage('That special key is already assigned to a device.');
+      setLinkMessageIsError(true);
+      return;
+    }
     const created: Device = { id: Date.now(), name: newDevName, key: newDevKey, status: 'Online', lastAlert: 'System initialized successfully.' };
-    setDevices([...devices, created]);
+    const nextDevices = [...devices, created];
+    setDevices(nextDevices);
+    try {
+      window.localStorage.setItem('gkb-devices', JSON.stringify(nextDevices));
+    } catch (error) {
+      console.error('Unable to save the device catalogue to browser storage.', error);
+      setLinkMessage('Device added for this session, but the catalogue could not be saved to this browser.');
+      setLinkMessageIsError(true);
+    }
     setNewDevName('');
     setNewDevKey('');
   };
@@ -672,148 +739,155 @@ export default function GKBSite() {
           </div>
         )}
 
-        {/* ================= ADMIN / CLIENT DEVICES PORTAL ================= */}
+        {/* ================= MY DEVICES ================= */}
         {activeTab === 'devices' && user && (
-          <div className="space-y-8 animate-fadeIn">
-            {user?.role === 'admin' ? (
-              <div className="space-y-8">
-                <div className="p-6 rounded-2xl bg-slate-900/80 border border-cyan-500/40">
-                  <h3 className="text-xl font-bold text-cyan-400 mb-4 flex items-center space-x-2">
-                    <Server className="w-5 h-5" />
-                    <span>Admin Panel: Create & Register New IoT Device</span>
-                  </h3>
-                  <form onSubmit={handleCreateDevice} className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <input 
-                      type="text" 
-                      placeholder="Device Name (e.g. Smart Security v2)" 
-                      value={newDevName}
-                      onChange={(e) => setNewDevName(e.target.value)}
-                      className="px-4 py-2 bg-slate-950 border border-slate-800 rounded-lg text-sm text-white focus:border-cyan-400 focus:outline-none"
-                      required
-                    />
-                    <input 
-                      type="text" 
-                      placeholder="Special Device Key (e.g. GKB-SEC-7711)" 
-                      value={newDevKey}
-                      onChange={(e) => setNewDevKey(e.target.value)}
-                      className="px-4 py-2 bg-slate-950 border border-slate-800 rounded-lg text-sm text-white focus:border-cyan-400 focus:outline-none"
-                      required
-                    />
-                    <button 
-                      type="submit"
-                      className="px-6 py-2 bg-gradient-to-r from-cyan-500 to-purple-600 text-black font-bold rounded-lg text-sm hover:opacity-90 transition-opacity flex items-center justify-center space-x-2"
-                    >
-                      <PlusCircle className="w-4 h-4" />
-                      <span>Deploy Device</span>
-                    </button>
-                  </form>
-                </div>
+          <div className="mx-auto max-w-7xl space-y-8 animate-fadeIn">
+            <header>
+              <h2 className="text-3xl font-bold text-white">My Devices</h2>
+              <p className="mt-2 text-sm text-slate-400">Test a GKB system preview, link a purchased device, or open one of your linked devices.</p>
+            </header>
 
-                {/* All System Devices List */}
-                <div className="p-6 rounded-2xl bg-slate-900/60 border border-slate-800">
-                  <h4 className="text-lg font-bold text-white mb-4">All Active Devices in GKB Ecosystem</h4>
-                  <div className="space-y-3">
-                    {devices.map(d => (
-                      <div key={d.id} className="p-4 rounded-xl bg-slate-950 border border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                        <div>
-                          <div className="text-white font-bold flex items-center space-x-2">
-                            <span>{d.name}</span>
-                            <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">{d.status}</span>
-                          </div>
-                          <div className="text-xs font-mono text-cyan-400 mt-1">Special Key: {d.key}</div>
-                          <div className="text-xs text-slate-400 mt-1">Telemetry Status: {d.lastAlert}</div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            ) : (
-              /* Client Add Device & Monitor Portal */
-              <div className="space-y-8">
-                <div className="p-6 rounded-2xl bg-slate-900/80 border border-cyan-500/40">
-                  <h3 className="text-xl font-bold text-cyan-400 mb-2 flex items-center space-x-2">
-                    <Cpu className="w-5 h-5" />
-                    <span>Link Your ESP32 Device</span>
-                  </h3>
-                  <p className="text-xs text-slate-400 mb-6">
-                    Enter the special device key provided by GKB Technologies to sync your ESP32 hardware telemetry and intrusion alarms to your portal.
-                  </p>
-                  <form onSubmit={handleLinkDevice} className="flex flex-col sm:flex-row gap-4 max-w-xl">
-                    <input 
-                      type="text" 
-                      placeholder="Enter Special Key (e.g. GKB-SEC-9988)" 
-                      value={inputKey}
-                      onChange={(e) => setInputKey(e.target.value)}
-                      className="flex-1 px-4 py-2 bg-slate-950 border border-slate-800 rounded-lg text-sm text-white focus:border-cyan-400 focus:outline-none font-mono"
-                      required
-                    />
-                    <button 
-                      type="submit"
-                      className="px-6 py-2 bg-cyan-500 text-black font-bold rounded-lg text-sm hover:bg-cyan-400 transition-colors"
-                    >
-                      Link Device
-                    </button>
-                  </form>
-                  {linkMessage && (
-                    <div className="mt-4 p-3 rounded-lg bg-cyan-500/10 border border-cyan-500/30 text-cyan-300 text-xs font-mono">
-                      {linkMessage}
-                    </div>
-                  )}
-                </div>
-
-                {/* Linked Devices & Real-Time Alerts */}
-                <div className="space-y-4">
-                  <h4 className="text-lg font-bold text-white">Your Linked Hardware Dashboards</h4>
-                  {linkedDevices.length === 0 ? (
-                    <div className="p-8 rounded-2xl bg-slate-900/30 border border-slate-800 text-center text-slate-500 text-sm">
-                      No devices linked yet. Use a valid GKB special key above to connect your ESP32 system.
-                    </div>
-                  ) : (
-                    linkedDevices.map(ld => (
-                      <div key={ld.id} className="p-6 rounded-2xl bg-slate-900 border border-purple-500/30 space-y-4">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <h5 className="text-white font-bold text-base flex items-center space-x-2">
-                              <span>{ld.name}</span>
-                              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-                            </h5>
-                            <p className="text-xs font-mono text-cyan-400">Key: {ld.key}</p>
-                          </div>
-                          <span className="px-3 py-1 rounded-full text-xs font-mono bg-purple-500/10 text-purple-300 border border-purple-500/30">
-                            ESP32 Connected
-                          </span>
-                        </div>
-                        {ld.project === 'fuel-tank-monitor' && (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setSelectedService('student-projects');
-                              setSelectedStudentProject(ld.project ?? null);
-                              setActiveTab('service-portal');
-                            }}
-                            className="inline-flex items-center gap-2 rounded-lg bg-cyan-500 px-4 py-2 text-sm font-bold text-slate-950 transition-colors hover:bg-cyan-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300"
-                          >
-                            Open in Service Portal
-                            <ArrowRight className="h-4 w-4" />
-                          </button>
-                        )}
-
-                        {/* Live Threat Notification Simulated Card */}
-                        <div className="p-4 rounded-xl bg-slate-950 border border-red-500/30 flex items-start space-x-3">
-                          <AlertTriangle className="w-5 h-5 text-red-400 shrink-0 mt-0.5 animate-bounce" />
-                          <div className="space-y-1">
-                            <div className="text-xs font-bold text-red-300 uppercase tracking-wide">Live Telemetry Feed & Threat Status</div>
-                            <div className="text-xs text-slate-300 font-mono">{ld.lastAlert}</div>
-                            <div className="text-[10px] text-slate-500">Actions Taken: SMS Dispatched + Direct Emergency Call Forwarded via GSM Module.</div>
-                          </div>
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </div>
+            {user.role === 'admin' && (
+              <section className="rounded-2xl border border-cyan-500/30 bg-slate-900/70 p-6">
+                <h3 className="mb-4 flex items-center gap-2 text-lg font-bold text-cyan-300">
+                  <Server className="h-5 w-5" />
+                  Add a system to the device catalogue
+                </h3>
+                <form onSubmit={handleCreateDevice} className="grid gap-4 md:grid-cols-3">
+                  <input
+                    type="text"
+                    placeholder="Device name"
+                    value={newDevName}
+                    onChange={e => setNewDevName(e.target.value)}
+                    className="rounded-lg border border-slate-800 bg-slate-950 px-4 py-2 text-sm text-white focus:border-cyan-400 focus:outline-none"
+                    required
+                  />
+                  <input
+                    type="text"
+                    placeholder="Special device key"
+                    value={newDevKey}
+                    onChange={e => setNewDevKey(e.target.value)}
+                    className="rounded-lg border border-slate-800 bg-slate-950 px-4 py-2 text-sm text-white focus:border-cyan-400 focus:outline-none"
+                    required
+                  />
+                  <button type="submit" className="flex items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-cyan-500 to-purple-600 px-5 py-2 text-sm font-bold text-black">
+                    <PlusCircle className="h-4 w-4" />
+                    Add device
+                  </button>
+                </form>
+              </section>
             )}
+
+            <section className="space-y-4">
+              <div>
+                <h3 className="text-xl font-bold text-white">Test a device</h3>
+                <p className="mt-1 text-sm text-slate-400">Open a private preview to see how each system dashboard will look. Test previews are not hardware connections.</p>
+              </div>
+              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                {devices.map(device => (
+                  <article key={device.id} className="flex flex-col rounded-2xl border border-slate-800 bg-slate-900/70 p-5">
+                    <div className="flex-1">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-cyan-300">System preview</span>
+                      <h4 className="mt-2 text-lg font-bold text-white">{device.name}</h4>
+                      {user.role === 'admin' && (
+                        <p className="mt-1 font-mono text-xs text-slate-500">Special key: {device.key}</p>
+                      )}
+                      <p className="mt-2 text-sm text-slate-400">Explore a simulated dashboard before linking a purchased device.</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setTestDevice(device);
+                        setActiveTab('device-test');
+                      }}
+                      className="mt-5 inline-flex items-center justify-center gap-2 rounded-lg border border-cyan-500/40 bg-cyan-500/10 px-4 py-2.5 text-sm font-bold text-cyan-300 transition-colors hover:bg-cyan-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
+                    >
+                      Test device
+                      <ArrowRight className="h-4 w-4" />
+                    </button>
+                  </article>
+                ))}
+              </div>
+            </section>
+
+            <section className="rounded-2xl border border-purple-500/30 bg-slate-900/60 p-6">
+              <h3 className="flex items-center gap-2 text-xl font-bold text-white">
+                <Cpu className="h-5 w-5 text-purple-300" />
+                Link a purchased device
+              </h3>
+              <p className="mt-2 text-sm text-slate-400">Enter the special key supplied with your device. Linking saves it to this browser profile; it will not open automatically.</p>
+              <form onSubmit={handleLinkDevice} className="mt-5 flex max-w-2xl flex-col gap-3 sm:flex-row">
+                <input
+                  type="text"
+                  aria-label="Device special key"
+                  placeholder="e.g. GKB-IUFT-0001"
+                  value={inputKey}
+                  onChange={e => setInputKey(e.target.value)}
+                  className="min-w-0 flex-1 rounded-lg border border-slate-800 bg-slate-950 px-4 py-2.5 font-mono text-sm text-white focus:border-cyan-400 focus:outline-none"
+                  required
+                />
+                <button type="submit" className="rounded-lg bg-cyan-500 px-6 py-2.5 text-sm font-bold text-black transition-colors hover:bg-cyan-400">
+                  Link device
+                </button>
+              </form>
+              {linkMessage && (
+                <p role={linkMessageIsError ? 'alert' : 'status'} className={`mt-4 rounded-lg border px-4 py-3 text-sm ${linkMessageIsError ? 'border-red-500/30 bg-red-500/10 text-red-300' : 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300'}`}>
+                  {linkMessage}
+                </p>
+              )}
+            </section>
+
+            <section className="space-y-4">
+              <div>
+                <h3 className="text-xl font-bold text-white">Linked devices</h3>
+                <p className="mt-1 text-sm text-slate-400">Open a saved device in its Service Portal dashboard when you want to check it.</p>
+              </div>
+              {linkedDevices.length === 0 ? (
+                <p className="rounded-2xl border border-slate-800 bg-slate-900/40 p-6 text-sm text-slate-400">
+                  No devices linked yet. Test a system above, or enter a purchased device key to link it.
+                </p>
+              ) : (
+                <div className="grid gap-4 md:grid-cols-2">
+                  {linkedDevices.map(device => (
+                    <article key={device.id} className="flex flex-col rounded-2xl border border-slate-800 bg-slate-900/70 p-5 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+                      <div>
+                        <h4 className="font-bold text-white">{device.name}</h4>
+                        <p className="mt-1 text-xs text-slate-400">Linked · open the dashboard to view its current preview</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedDevice(device);
+                          setSelectedService(device.project ? 'student-projects' : 'retail-gadgets');
+                          setActiveTab('service-portal');
+                        }}
+                        className="mt-4 inline-flex shrink-0 items-center justify-center gap-2 rounded-lg bg-purple-500/15 px-4 py-2.5 text-sm font-bold text-purple-200 transition-colors hover:bg-purple-500/25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-400 sm:mt-0"
+                      >
+                        Open in Service Portal
+                        <ArrowRight className="h-4 w-4" />
+                      </button>
+                    </article>
+                  ))}
+                </div>
+              )}
+            </section>
+          </div>
+        )}
+
+        {/* ================= PRIVATE DEVICE TEST PREVIEW ================= */}
+        {activeTab === 'device-test' && user && testDevice && (
+          <div className="mx-auto max-w-7xl space-y-6 animate-fadeIn">
+            <button
+              type="button"
+              onClick={() => setActiveTab('devices')}
+              className="inline-flex items-center gap-2 rounded-lg border border-slate-700 px-4 py-2 text-sm font-semibold text-slate-300 transition-colors hover:border-cyan-400 hover:text-cyan-300"
+            >
+              <ArrowRight className="h-4 w-4 rotate-180" />
+              Back to My Devices
+            </button>
+            {testDevice.project === 'fuel-tank-monitor'
+              ? <FuelTankMonitorDashboard mode="test" />
+              : <GenericDeviceDashboard device={testDevice} mode="test" />}
           </div>
         )}
 
@@ -825,148 +899,41 @@ export default function GKBSite() {
                 Signed in as {user.email}
               </p>
               <h2 className="mt-2 text-2xl font-bold text-white">
-                {selectedService === 'student-projects' ? 'Student Project Solutions' : 'Retail Gadget Distribution'}
+                {selectedDevice?.name ?? (selectedService === 'student-projects' ? 'Student Project Solutions' : 'Retail Gadget Distribution')}
               </h2>
               <p className="mt-2 text-sm text-slate-300">
-                {selectedService === 'student-projects'
-                  ? 'Browse your student projects and open a project to explore its interface.'
-                  : 'Browse your linked device dashboard and contact GKB to confirm gadget availability and pricing.'}
+                {selectedDevice
+                  ? 'Device service dashboard. Sample readings are shown until live hardware telemetry is connected.'
+                  : 'Select a saved device from My Devices to open its service dashboard.'}
               </p>
             </div>
 
-            {selectedService === 'student-projects' && (
-              <>
-                <div role="tablist" aria-label="Student projects" className="flex gap-2 overflow-x-auto border-b border-slate-800 pb-2">
-                  <button
-                    type="button"
-                    role="tab"
-                    aria-selected={selectedStudentProject === null}
-                    onClick={() => setSelectedStudentProject(null)}
-                    className={`shrink-0 rounded-lg px-4 py-2.5 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 ${
-                      selectedStudentProject === null
-                        ? 'border border-cyan-500/40 bg-cyan-500/10 text-cyan-300'
-                        : 'text-slate-400 hover:bg-slate-900 hover:text-white'
-                    }`}
-                  >
-                    All projects
-                  </button>
-                  <button
-                    type="button"
-                    role="tab"
-                    aria-selected={selectedStudentProject === 'fuel-tank-monitor'}
-                    onClick={() => setSelectedStudentProject('fuel-tank-monitor')}
-                    className={`shrink-0 rounded-lg px-4 py-2.5 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 ${
-                      selectedStudentProject === 'fuel-tank-monitor'
-                        ? 'border border-cyan-500/40 bg-cyan-500/10 text-cyan-300'
-                        : 'text-slate-400 hover:bg-slate-900 hover:text-white'
-                    }`}
-                  >
-                    Industrial Fuel Tank Monitor
-                  </button>
-                </div>
-
-                {selectedStudentProject === null ? (
-                  <section role="tabpanel" className="rounded-2xl border border-emerald-500/30 bg-slate-900/60 p-6">
-                    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                      <div>
-                        <p className="text-xs font-bold uppercase tracking-wider text-emerald-300">IoT · Student project</p>
-                        <h3 className="mt-2 text-lg font-bold text-white">Industrial Fuel Tank Monitor</h3>
-                        <p className="mt-1 text-sm text-slate-400">Open the project to view its sample industrial tank dashboard.</p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => setSelectedStudentProject('fuel-tank-monitor')}
-                        className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg bg-emerald-400 px-4 py-2.5 text-sm font-bold text-slate-950 transition-colors hover:bg-emerald-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300"
-                      >
-                        Open project
-                        <ArrowRight className="h-4 w-4" />
-                      </button>
-                    </div>
-                  </section>
-                ) : (
-                  <div role="tabpanel">
-                    <FuelTankMonitorDashboard />
-                  </div>
-                )}
-              </>
+            {selectedDevice ? (
+              <div className="space-y-5">
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('devices')}
+                  className="inline-flex items-center gap-2 rounded-lg border border-slate-700 px-4 py-2 text-sm font-semibold text-slate-300 transition-colors hover:border-cyan-400 hover:text-cyan-300"
+                >
+                  <ArrowRight className="h-4 w-4 rotate-180" />
+                  Back to My Devices
+                </button>
+                {selectedDevice.project === 'fuel-tank-monitor'
+                  ? <FuelTankMonitorDashboard mode="service" />
+                  : <GenericDeviceDashboard device={selectedDevice} mode="service" />}
+              </div>
+            ) : (
+              <section className="rounded-2xl border border-slate-800 bg-slate-900/50 p-6">
+                <p className="text-sm text-slate-300">No device dashboard is selected yet. Link a purchased device, then open it from your Linked devices list.</p>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('devices')}
+                  className="mt-4 rounded-lg bg-cyan-500 px-4 py-2.5 text-sm font-bold text-black transition-colors hover:bg-cyan-400"
+                >
+                  Go to My Devices
+                </button>
+              </section>
             )}
-
-            {selectedService !== 'student-projects' || selectedStudentProject === null ? (
-              <>
-                <section className="rounded-2xl border border-purple-500/30 bg-slate-900/60 p-6">
-                  <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                    <div>
-                      <h3 className="text-lg font-bold text-white">Your linked devices</h3>
-                      <p className="mt-1 text-sm text-slate-400">
-                        {linkedDevices.length
-                          ? `${linkedDevices.length} device${linkedDevices.length === 1 ? '' : 's'} linked to your account.`
-                          : 'Link a device to view its dashboard and latest status.'}
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setActiveTab('devices')}
-                      className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg bg-cyan-500 px-4 py-2.5 text-sm font-bold text-black transition-colors hover:bg-cyan-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300"
-                    >
-                      <Cpu className="h-4 w-4" />
-                      View device dashboard
-                    </button>
-                  </div>
-                  {linkedDevices.length > 0 && (
-                    <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                      {linkedDevices.map(device => {
-                        const content = (
-                          <>
-                            <p className="font-semibold text-white">{device.name}</p>
-                            <p className="mt-1 text-xs text-slate-400">{device.status} · {device.lastAlert}</p>
-                          </>
-                        );
-
-                        return device.project === 'fuel-tank-monitor' ? (
-                          <button
-                            key={device.id}
-                            type="button"
-                            onClick={() => setSelectedStudentProject(device.project ?? null)}
-                            className="rounded-xl border border-slate-800 bg-slate-950 p-4 text-left transition-colors hover:border-cyan-500/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
-                          >
-                            {content}
-                            <span className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-cyan-300">
-                              Open project dashboard <ArrowRight className="h-3.5 w-3.5" />
-                            </span>
-                          </button>
-                        ) : (
-                          <div key={device.id} className="rounded-xl border border-slate-800 bg-slate-950 p-4">
-                            {content}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </section>
-
-                <section className="rounded-2xl border border-emerald-500/30 bg-slate-900/60 p-6">
-                  <h3 className="flex items-center gap-2 text-lg font-bold text-white">
-                    <CreditCard className="h-5 w-5 text-emerald-400" />
-                    Demo checkout
-                  </h3>
-                  <p className="mt-2 text-sm text-slate-300">
-                    Checkout is currently a demo only. No payment provider, price, or real charge is configured.
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => setDemoPaymentComplete(true)}
-                    className="mt-4 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-4 py-2.5 text-sm font-bold text-emerald-300 transition-colors hover:bg-emerald-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400"
-                  >
-                    Preview demo checkout
-                  </button>
-                  {demoPaymentComplete && (
-                    <p role="status" className="mt-3 text-sm text-emerald-300">
-                      Demo checkout preview complete. No payment was processed or money charged.
-                    </p>
-                  )}
-                </section>
-              </>
-            ) : null}
           </div>
         )}
 
