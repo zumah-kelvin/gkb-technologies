@@ -48,6 +48,17 @@ type Complaint = {
   date: string;
 };
 
+function formatSupabaseError(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  if (typeof error === 'object' && error !== null && 'message' in error && typeof error.message === 'string') {
+    const details = 'details' in error && typeof error.details === 'string' ? error.details : '';
+    const hint = 'hint' in error && typeof error.hint === 'string' ? error.hint : '';
+    const code = 'code' in error && typeof error.code === 'string' ? ` (${error.code})` : '';
+    return [error.message + code, details, hint].filter(Boolean).join(' ');
+  }
+  return 'Unknown Supabase error. Check the browser console and Supabase logs.';
+}
+
 function RelayTestDashboard({ mode }: { mode: 'test' | 'service' }) {
   const [relayOn, setRelayOn] = useState(false);
   const [relaySession, setRelaySession] = useState<Session | null>(null);
@@ -222,7 +233,7 @@ function RelayTestDashboard({ mode }: { mode: 'test' | 'service' }) {
       setLastSyncedAt(new Date());
       setRelayMessage(`Command saved as ${data.state}. The ESP32 polls every 3 seconds; its current firmware does not acknowledge the physical output.`);
     } catch (error) {
-      setRelayError(error instanceof Error ? error.message : 'Could not send the relay command to Supabase.');
+      setRelayError(`Could not send the relay command to Supabase: ${formatSupabaseError(error)}`);
     } finally {
       setRelayBusy(false);
     }
