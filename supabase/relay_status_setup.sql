@@ -26,9 +26,10 @@ end;
 $$;
 
 -- The ESP32 uses the publishable key to read the relay state only.
--- Browser users may update only a row assigned to their Supabase Auth user.
+-- Browser users may read/update only a row assigned to their Supabase Auth user.
 revoke all on table public.relay_status from public, anon, authenticated;
-grant select (device_id, state, updated_at) on table public.relay_status to anon, authenticated;
+grant select (device_id, state, updated_at) on table public.relay_status to anon;
+grant select on table public.relay_status to authenticated;
 grant update (state, updated_at) on table public.relay_status to authenticated;
 
 create policy relay_01_anon_read
