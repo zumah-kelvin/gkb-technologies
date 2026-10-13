@@ -3,7 +3,7 @@ import type { Session } from '@supabase/supabase-js';
 import { relayControlEnabled, relayPairingEnabled, relaySupabase, relaySupabaseConfigError } from './supabase';
 import {
   Cpu, Shield, Smartphone, Wrench, Phone, Mail, Globe, Camera,
-  User, Lock, LogOut, PlusCircle, CheckCircle, AlertTriangle,
+  User, Lock, LogOut, PlusCircle, CheckCircle, AlertTriangle, Unlink,
   Send, Server, Terminal, Activity, Layers, ArrowRight, CheckSquare, Square,
   Sun, Moon, Zap, Wifi, Radio, Gauge, BatteryCharging, Lightbulb, Pencil, Save, X
 } from 'lucide-react';
@@ -2269,6 +2269,32 @@ export default function GKBSite() {
     }
   };
 
+  const handleUnlinkDevice = (device: Device) => {
+    if (!user) {
+      setLinkMessage('Sign in before removing a device from this account.');
+      setLinkMessageIsError(true);
+      return;
+    }
+    if (!window.confirm(`Unlink "${device.name}" from this account? This removes its dashboard link only; it does not unpair or reset the physical device.`)) {
+      return;
+    }
+
+    const nextLinkedDevices = linkedDevices.filter(linkedDevice => linkedDevice.key !== device.key);
+    try {
+      window.localStorage.setItem(
+        `gkb-linked-devices:${user.email.trim().toLowerCase()}`,
+        JSON.stringify(nextLinkedDevices)
+      );
+      setLinkedDevices(nextLinkedDevices);
+      setLinkMessage(`"${device.name}" was unlinked from this account. The physical device pairing was not changed.`);
+      setLinkMessageIsError(false);
+    } catch (error) {
+      console.error('Unable to update this account’s linked devices in browser storage.', error);
+      setLinkMessage(`Could not unlink "${device.name}" because the browser could not save the change.`);
+      setLinkMessageIsError(true);
+    }
+  };
+
   // Admin action: Create Device
   const handleCreateDevice = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -2643,7 +2669,7 @@ export default function GKBSite() {
             <section className="space-y-4">
               <div>
                 <h3 className="text-xl font-bold text-white">Linked devices</h3>
-                <p className="mt-1 text-sm text-slate-400">Open a saved device in its Service Portal dashboard when you want to check it.</p>
+                <p className="mt-1 text-sm text-slate-400">Open a linked device or unlink it from this account. Unlinking does not reset or unpair its physical hardware.</p>
               </div>
               {linkedDevices.length === 0 ? (
                 <p className="rounded-2xl border border-slate-800 bg-slate-900/40 p-6 text-sm text-slate-400">
@@ -2655,20 +2681,31 @@ export default function GKBSite() {
                     <article key={device.id} className="flex flex-col rounded-2xl border border-slate-800 bg-slate-900/70 p-5 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
                       <div>
                         <h4 className="font-bold text-white">{device.name}</h4>
-                        <p className="mt-1 text-xs text-slate-400">Linked · open the dashboard to view its current preview</p>
+                        <p className="mt-1 text-xs text-slate-400">Linked to this account · hardware pairing is managed separately</p>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setSelectedDevice(device);
-                          setSelectedService(device.project ? 'student-projects' : 'retail-gadgets');
-                          setActiveTab('service-portal');
-                        }}
-                        className="mt-4 inline-flex shrink-0 items-center justify-center gap-2 rounded-lg bg-purple-500/15 px-4 py-2.5 text-sm font-bold text-purple-200 transition-colors hover:bg-purple-500/25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-400 sm:mt-0"
-                      >
-                        Open in Service Portal
-                        <ArrowRight className="h-4 w-4" />
-                      </button>
+                      <div className="mt-4 flex shrink-0 flex-col gap-2 sm:mt-0 sm:flex-row">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedDevice(device);
+                            setSelectedService(device.project ? 'student-projects' : 'retail-gadgets');
+                            setActiveTab('service-portal');
+                          }}
+                          className="inline-flex items-center justify-center gap-2 rounded-lg bg-purple-500/15 px-4 py-2.5 text-sm font-bold text-purple-200 transition-colors hover:bg-purple-500/25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-400"
+                        >
+                          Open in Service Portal
+                          <ArrowRight className="h-4 w-4" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleUnlinkDevice(device)}
+                          className="inline-flex items-center justify-center gap-2 rounded-lg border border-red-500/30 px-4 py-2.5 text-sm font-semibold text-red-200 transition-colors hover:bg-red-500/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400"
+                          aria-label={`Unlink ${device.name}`}
+                        >
+                          <Unlink className="h-4 w-4" />
+                          Unlink
+                        </button>
+                      </div>
                     </article>
                   ))}
                 </div>

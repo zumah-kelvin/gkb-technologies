@@ -27,6 +27,7 @@ Sign in to the portal and open **My Devices**:
 - Choose **Test device** to preview a device dashboard without linking it.
 - Enter a key below under **Link a purchased device** to add a device to the current browser profile.
 - Open a linked device from **Linked devices** to view its Service Portal dashboard.
+- Choose **Unlink** beside a linked device to remove that account's browser-profile link after confirmation. This does not unpair/reset physical hardware or release its Supabase owner assignment.
 
 ### Demo device keys
 
