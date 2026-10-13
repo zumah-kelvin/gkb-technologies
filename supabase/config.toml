@@ -1,0 +1,4 @@
+project_id = "gkb-technologies"
+
+[functions.pair-relay]
+verify_jwt = true

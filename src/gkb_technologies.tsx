@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import type { Session } from '@supabase/supabase-js';
-import { relayControlEnabled, relaySupabase, relaySupabaseConfigError } from './supabase';
+import { relayControlEnabled, relayPairingEnabled, relaySupabase, relaySupabaseConfigError } from './supabase';
 import {
   Cpu, Shield, Smartphone, Wrench, Phone, Mail, Globe, Camera,
   User, Lock, LogOut, PlusCircle, CheckCircle, AlertTriangle,
@@ -59,6 +59,20 @@ function formatSupabaseError(error: unknown): string {
   return 'Unknown Supabase error. Check the browser console and Supabase logs.';
 }
 
+async function formatSupabaseFunctionError(error: unknown): Promise<string> {
+  if (typeof error === 'object' && error !== null && 'context' in error && error.context instanceof Response) {
+    try {
+      const responseBody: unknown = await error.context.clone().json();
+      if (typeof responseBody === 'object' && responseBody !== null && 'error' in responseBody && typeof responseBody.error === 'string') {
+        return responseBody.error;
+      }
+    } catch {
+      return formatSupabaseError(error);
+    }
+  }
+  return formatSupabaseError(error);
+}
+
 function RelayTestDashboard({ mode }: { mode: 'test' | 'service' }) {
   const [relayOn, setRelayOn] = useState(false);
   const [relaySession, setRelaySession] = useState<Session | null>(null);
@@ -74,6 +88,7 @@ function RelayTestDashboard({ mode }: { mode: 'test' | 'service' }) {
   const [relayMessage, setRelayMessage] = useState('');
   const [connectionState, setConnectionState] = useState<'connecting' | 'connected' | 'error'>('connecting');
   const [lastSyncedAt, setLastSyncedAt] = useState<Date | null>(null);
+  const [relayPaired, setRelayPaired] = useState(false);
 
   useEffect(() => {
     if (mode !== 'service') return;
@@ -107,7 +122,7 @@ function RelayTestDashboard({ mode }: { mode: 'test' | 'service' }) {
       try {
         const { data, error } = await relaySupabase
           .from('relay_status')
-          .select('state, updated_at')
+          .select('state, updated_at, paired_at')
           .eq('device_id', 'relay_01')
           .maybeSingle();
         if (disposed) return;
@@ -127,6 +142,7 @@ function RelayTestDashboard({ mode }: { mode: 'test' | 'service' }) {
           return;
         }
         setRelayOn(data.state === 'ON');
+        setRelayPaired(Boolean(data.paired_at));
         setLastSyncedAt(new Date());
         setConnectionState('connected');
         setRelayError('');
@@ -207,31 +223,35 @@ function RelayTestDashboard({ mode }: { mode: 'test' | 'service' }) {
       setRelayOn(current => !current);
       return;
     }
-    if (!relayControlEnabled || !relaySupabase || !relaySession || relayBusy) return;
+    if (!relayControlEnabled || !relaySupabase || !relaySession || !relayPaired || relayBusy) return;
 
     const nextState = relayOn ? 'OFF' : 'ON';
     setRelayBusy(true);
     setRelayError('');
     setRelayMessage('');
     try {
-      const { data, error } = await relaySupabase
+      const { error } = await relaySupabase
         .from('relay_status')
         .update({ state: nextState, updated_at: new Date().toISOString() })
-        .eq('device_id', 'relay_01')
-        .select('state, updated_at')
-        .maybeSingle();
+        .eq('device_id', 'relay_01');
       if (error) throw error;
+
+      const { data, error: verificationError } = await relaySupabase
+        .from('relay_status')
+        .select('state, updated_at')
+        .eq('device_id', 'relay_01')
+        .maybeSingle();
+      if (verificationError) throw new Error(`Command was submitted, but its state could not be verified: ${verificationError.message}`);
       if (!data) {
-        setRelayError('No row was updated. This Supabase account may not be authorized to control relay_01.');
-        return;
+        throw new Error('No relay_01 row is visible to this account after the command. Check its owner assignment and RLS policies.');
       }
-      if (data.state !== 'ON' && data.state !== 'OFF') {
-        setRelayError(`Unexpected relay state returned after update: ${String(data.state)}.`);
-        return;
+      if (data.state !== nextState) {
+        setRelayOn(data.state === 'ON');
+        throw new Error(`Supabase still reports ${data.state}; the requested ${nextState} command was not confirmed.`);
       }
       setRelayOn(data.state === 'ON');
       setLastSyncedAt(new Date());
-      setRelayMessage(`Command saved as ${data.state}. The ESP32 polls every 3 seconds; its current firmware does not acknowledge the physical output.`);
+      setRelayMessage(`Database state confirmed as ${data.state}. The ESP32 polls every 3 seconds; its current firmware does not acknowledge the physical output.`);
     } catch (error) {
       setRelayError(`Could not send the relay command to Supabase: ${formatSupabaseError(error)}`);
     } finally {
@@ -303,7 +323,7 @@ function RelayTestDashboard({ mode }: { mode: 'test' | 'service' }) {
             aria-label="Relay switch"
             aria-checked={relayOn}
             onClick={() => void handleRelayToggle()}
-            disabled={mode === 'service' && (!relayControlEnabled || !relaySupabase || !relaySession || relayBusy || connectionState !== 'connected')}
+            disabled={mode === 'service' && (!relayControlEnabled || !relaySupabase || !relaySession || !relayPaired || relayBusy || connectionState !== 'connected')}
             className={`relative h-10 w-[4.5rem] rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 disabled:cursor-not-allowed disabled:opacity-50 ${relayOn ? 'bg-emerald-500' : 'bg-slate-700'}`}
           >
             <span className={`absolute left-1 top-1 h-8 w-8 rounded-full bg-white shadow transition-transform ${relayOn ? 'translate-x-8' : 'translate-x-0'}`} />
@@ -317,6 +337,7 @@ function RelayTestDashboard({ mode }: { mode: 'test' | 'service' }) {
               {relayError && <p role="alert" className="max-w-64 text-center text-xs leading-relaxed text-red-300">{relayError}</p>}
               {relayMessage && <p role="status" className="max-w-64 text-center text-xs leading-relaxed text-emerald-200">{relayMessage}</p>}
               {!relayControlEnabled && <p role="status" className="max-w-64 text-center text-xs leading-relaxed text-amber-200">Relay control is disabled. Apply the secure Supabase SQL setup first, then set VITE_RELAY_CONTROL_ENABLED=true in Netlify.</p>}
+              {relayControlEnabled && relaySupabase && relaySession && connectionState === 'connected' && !relayPaired && <p role="status" className="max-w-64 text-center text-xs leading-relaxed text-amber-200">This ESP32 has not been paired yet. Use the unique hardware key in My Devices before enabling relay commands.</p>}
               <p className="max-w-64 text-center text-xs leading-relaxed text-amber-200">
                 The animation follows the database state; this firmware does not confirm the physical relay output.
               </p>
@@ -2080,6 +2101,7 @@ export default function GKBSite() {
   const [inputKey, setInputKey] = useState('');
   const [linkMessage, setLinkMessage] = useState('');
   const [linkMessageIsError, setLinkMessageIsError] = useState(false);
+  const [linkBusy, setLinkBusy] = useState(false);
 
   // Admin New Device Form
   const [newDevName, setNewDevName] = useState('');
@@ -2174,39 +2196,77 @@ export default function GKBSite() {
   };
 
   // Device Linking action for Client
-  const handleLinkDevice = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleLinkDevice = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setLinkMessage('');
     setLinkMessageIsError(false);
-    const enteredKey = inputKey.trim().toUpperCase();
-    const found = devices.find((d: Device) =>
-      d.key.toUpperCase() === enteredKey ||
-      d.legacyKeys?.some(key => key.toUpperCase() === enteredKey)
+    setLinkBusy(true);
+    const pairingKey = inputKey.trim();
+    const foundDemoDevice = devices.find((device: Device) =>
+      device.key.toUpperCase() === pairingKey.toUpperCase() ||
+      device.legacyKeys?.some(key => key.toUpperCase() === pairingKey.toUpperCase())
     );
-    if (found) {
-      if (!linkedDevices.some((d: Device) => d.key === found.key)) {
-        const nextLinkedDevices = [...linkedDevices, found];
-        setLinkedDevices(nextLinkedDevices);
-        try {
-          window.localStorage.setItem(
-            `gkb-linked-devices:${user?.email.trim().toLowerCase()}`,
-            JSON.stringify(nextLinkedDevices)
-          );
-          setLinkMessage(`"${found.name}" is linked and saved to this browser profile. Open it from Linked devices when you’re ready.`);
-        } catch (error) {
-          console.error('Unable to save linked device to browser storage.', error);
-          setLinkMessage(`"${found.name}" is linked for this session, but could not be saved to this browser.`);
-          setLinkMessageIsError(true);
-        }
-      } else {
-        setLinkMessage('Device is already linked to your account.');
+
+    const saveLinkedDevice = (device: Device, message: string) => {
+      const nextLinkedDevices = linkedDevices.some(linkedDevice => linkedDevice.key === device.key)
+        ? linkedDevices
+        : [...linkedDevices, device];
+      setLinkedDevices(nextLinkedDevices);
+      try {
+        window.localStorage.setItem(
+          `gkb-linked-devices:${user?.email.trim().toLowerCase()}`,
+          JSON.stringify(nextLinkedDevices)
+        );
+        setLinkMessage(message);
+      } catch (error) {
+        console.error('Unable to save linked device to browser storage.', error);
+        setLinkMessage(`${message} It is linked for this session but could not be saved to this browser.`);
         setLinkMessageIsError(true);
       }
-    } else {
-      setLinkMessage('Invalid Device Special Key. Check with Admin.');
+    };
+
+    try {
+      if (foundDemoDevice) {
+        if (linkedDevices.some(device => device.key === foundDemoDevice.key)) {
+          setLinkMessage('Device is already linked to your account.');
+          setLinkMessageIsError(true);
+        } else {
+          saveLinkedDevice(foundDemoDevice, `"${foundDemoDevice.name}" demo preview linked. Use its one-time ESP32 pairing key to pair physical hardware.`);
+        }
+        return;
+      }
+
+      if (!relayPairingEnabled || !relaySupabase) {
+        throw new Error('Secure ESP32 pairing is not enabled yet. The administrator must deploy the pair-relay Supabase Edge Function and enable VITE_RELAY_PAIRING_ENABLED in Netlify.');
+      }
+      const { data: { session }, error: sessionError } = await relaySupabase.auth.getSession();
+      if (sessionError) throw sessionError;
+      if (!session) {
+        throw new Error('Sign in to Supabase first. Open the linked Relay Test Service Portal, sign in under “Supabase relay account,” then return here.');
+      }
+
+      const { data, error } = await relaySupabase.functions.invoke('pair-relay', {
+        body: { pairingKey }
+      });
+      if (error) throw new Error(await formatSupabaseFunctionError(error));
+      if (typeof data !== 'object' || data === null || !('device_id' in data) || data.device_id !== 'relay_01') {
+        throw new Error('The pairing service returned an unexpected device response.');
+      }
+      const relayDevice = devices.find(device => device.project === 'relay-test');
+      if (!relayDevice) {
+        throw new Error('The Relay Test device is missing from this site’s device catalogue.');
+      }
+      saveLinkedDevice(
+        relayDevice,
+        'ESP32 relay paired to your Supabase account. The one-time pairing key has been consumed; open Relay Test from Linked devices.'
+      );
+    } catch (error) {
+      setLinkMessage(error instanceof Error ? error.message : formatSupabaseError(error));
       setLinkMessageIsError(true);
+    } finally {
+      setInputKey('');
+      setLinkBusy(false);
     }
-    setInputKey('');
   };
 
   // Admin action: Create Device
@@ -2554,21 +2614,25 @@ export default function GKBSite() {
                 <Cpu className="h-5 w-5 text-purple-300" />
                 Link a purchased device
               </h3>
-              <p className="mt-2 text-sm text-slate-400">Enter the special key supplied with your device. Linking saves it to this browser profile; it will not open automatically.</p>
+              <p className="mt-2 text-sm text-slate-400">
+                Demo keys link previews in this browser. For the physical Relay Test ESP32, enter its unique one-time pairing key; pairing requires an active Supabase sign-in and a deployed pairing service.
+              </p>
               <form onSubmit={handleLinkDevice} className="mt-5 flex max-w-2xl flex-col gap-3 sm:flex-row">
                 <input
                   type="text"
                   aria-label="Device special key"
-                  placeholder="e.g. GKB-IUFT-0001"
+                  placeholder="Demo key or ESP32 pairing key"
                   value={inputKey}
                   onChange={e => setInputKey(e.target.value)}
+                  disabled={linkBusy}
                   className="min-w-0 flex-1 rounded-lg border border-slate-800 bg-slate-950 px-4 py-2.5 font-mono text-sm text-white focus:border-cyan-400 focus:outline-none"
                   required
                 />
-                <button type="submit" className="rounded-lg bg-cyan-500 px-6 py-2.5 text-sm font-bold text-black transition-colors hover:bg-cyan-400">
-                  Link device
+                <button type="submit" disabled={linkBusy} className="rounded-lg bg-cyan-500 px-6 py-2.5 text-sm font-bold text-black transition-colors hover:bg-cyan-400 disabled:cursor-wait disabled:opacity-60">
+                  {linkBusy ? 'Verifying key…' : 'Link device'}
                 </button>
               </form>
+              {!relayPairingEnabled && <p className="mt-3 text-xs leading-relaxed text-amber-200">Hardware pairing is not enabled yet; demo keys still link previews. The administrator must deploy the secure pairing function before an ESP32 key can be used.</p>}
               {linkMessage && (
                 <p role={linkMessageIsError ? 'alert' : 'status'} className={`mt-4 rounded-lg border px-4 py-3 text-sm ${linkMessageIsError ? 'border-red-500/30 bg-red-500/10 text-red-300' : 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300'}`}>
                   {linkMessage}

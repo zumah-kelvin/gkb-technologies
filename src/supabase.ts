@@ -24,3 +24,4 @@ export const relaySupabase = supabaseUrl && supabasePublishableKey
   : null;
 
 export const relayControlEnabled = import.meta.env.VITE_RELAY_CONTROL_ENABLED === 'true';
+export const relayPairingEnabled = import.meta.env.VITE_RELAY_PAIRING_ENABLED === 'true';
