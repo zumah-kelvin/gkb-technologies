@@ -18,6 +18,8 @@ type UserType = {
   email: string;
 };
 
+const ADMIN_PORTAL_EMAIL = 'zumkel023@gmail.com';
+
 type Device = {
   id: number;
   name: string;
@@ -3125,7 +3127,7 @@ export default function GKBSite() {
               </h3>
               <p className="text-xs text-slate-400">
                 {creatingAccount
-                  ? 'Create an account to place orders and track their status.'
+                  ? 'Create an account to place orders and track their status. Admin access is granted separately.'
                   : 'Sign in to view your portal, devices, and orders.'}
               </p>
             </div>
@@ -3188,7 +3190,38 @@ export default function GKBSite() {
               >
                 {creatingAccount ? 'Already have an account? Sign in' : 'New client? Create an account'}
               </button>
-              <p className="text-[11px] text-slate-500">Admin access is granted separately by the GKB administrator.</p>
+              <div className="flex items-center justify-center gap-3 text-[11px]">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCreatingAccount(false);
+                    setLoginEmail(ADMIN_PORTAL_EMAIL);
+                    setLoginPassword('');
+                    setLoginError('');
+                    setLoginMessage('');
+                  }}
+                  className="font-semibold text-purple-300 hover:text-purple-200"
+                >
+                  Admin sign in
+                </button>
+                <span className="text-slate-600">·</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCreatingAccount(true);
+                    setLoginEmail(ADMIN_PORTAL_EMAIL);
+                    setLoginPassword('');
+                    setLoginError('');
+                    setLoginMessage('');
+                  }}
+                  className="font-semibold text-purple-300 hover:text-purple-200"
+                >
+                  First-time admin setup
+                </button>
+              </div>
+              <p className="text-[11px] text-slate-500">
+                Admin email: {ADMIN_PORTAL_EMAIL}. Choose your own password; then promote this account in Supabase using the setup instructions.
+              </p>
             </div>
 
             <div className="text-center pt-2">
