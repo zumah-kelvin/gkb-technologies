@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { relayControlEnabled, relayPairingEnabled, relaySupabase, relaySupabaseConfigError } from './supabase';
+import OrdersPortal from './OrdersPortal';
 import {
   Cpu, Shield, Smartphone, Wrench, Phone, Mail, Globe, Camera,
   User, Lock, LogOut, PlusCircle, CheckCircle, AlertTriangle, Unlink,
@@ -12,6 +13,7 @@ type ServiceType = 'student-projects' | 'retail-gadgets';
 type StudentProject = 'fuel-tank-monitor' | 'water-tank-monitor' | 'prepaid-energy-meter' | 'alcohol-breathalyzer' | 'fan-regulator' | 'light-control' | 'relay-test';
 
 type UserType = {
+  id: string;
   role: 'admin' | 'client';
   email: string;
 };
@@ -2078,11 +2080,16 @@ export default function GKBSite() {
   const [isLightMode, setIsLightMode] = useState(
     () => window.localStorage.getItem('gkb-theme') === 'light'
   );
-  const [user, setUser] = useState<UserType | null>(null); // null, { role: 'admin', email: '...' }, or { role: 'client', email: '...' }
+  const [user, setUser] = useState<UserType | null>(null);
   const [loginModalOpen, setLoginModalOpen] = useState(false);
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
   const [loginError, setLoginError] = useState('');
+  const [loginMessage, setLoginMessage] = useState('');
+  const [loginBusy, setLoginBusy] = useState(false);
+  const [creatingAccount, setCreatingAccount] = useState(false);
+  const [portalAuthLoading, setPortalAuthLoading] = useState(true);
+  const [portalAuthError, setPortalAuthError] = useState('');
   const [selectedService, setSelectedService] = useState<ServiceType | null>(null);
   const [selectedDevice, setSelectedDevice] = useState<Device | null>(null);
   const [testDevice, setTestDevice] = useState<Device | null>(null);
@@ -2116,40 +2123,7 @@ export default function GKBSite() {
   }
   const [newComplaintText, setNewComplaintText] = useState('');
 
-  useEffect(() => {
-    window.localStorage.setItem('gkb-theme', isLightMode ? 'light' : 'dark');
-  }, [isLightMode]);
-
-  // Handle Login Logic based on user requirements
-  const handleLoginSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    setLoginError('');
-
-    // Check Admin credentials
-    if (loginEmail.trim() === 'zumkel023@gmail.com' && loginPassword === '123456789') {
-      activateUser({ role: 'admin', email: loginEmail });
-      setLoginModalOpen(false);
-      clearInputs();
-      return;
-    }
-
-    // Check Client / Google Login simulation
-    if (loginEmail.includes('@') && loginPassword.length >= 6) {
-      activateUser({ role: 'client', email: loginEmail });
-      setLoginModalOpen(false);
-      clearInputs();
-      return;
-    }
-
-    setLoginError('Invalid credentials. For Admin use strict email/pass. For Client use valid email & password.');
-  };
-
-  const handleGoogleMockLogin = () => {
-    activateUser({ role: 'client', email: 'google.client.user@gmail.com' });
-    setLoginModalOpen(false);
-  };
-
-  const activateUser = (account: UserType) => {
+  const activateUser = useCallback((account: UserType) => {
     setUser(account);
     setActiveTab(selectedService ? 'service-portal' : 'devices');
     setSelectedDevice(null);
@@ -2169,14 +2143,141 @@ export default function GKBSite() {
       setLinkMessage('Saved devices could not be loaded from this browser.');
       setLinkMessageIsError(true);
     }
+  }, [devices, selectedService]);
+
+  const applyPortalSession = useCallback(async (session: Session | null) => {
+    setPortalAuthError('');
+    if (!session?.user.email) {
+      setUser(null);
+      setLinkedDevices([]);
+      return;
+    }
+
+    const account: UserType = { id: session.user.id, role: 'client', email: session.user.email };
+    if (!relaySupabase) {
+      activateUser(account);
+      return;
+    }
+
+    const { data, error } = await relaySupabase
+      .from('gkb_user_roles')
+      .select('role')
+      .eq('user_id', session.user.id)
+      .maybeSingle();
+    if (error) {
+      console.error('Unable to load the signed-in portal user role.', error);
+      activateUser(account);
+      setPortalAuthError(`Account access could not be verified: ${error.message}`);
+      return;
+    }
+    activateUser({ ...account, role: data?.role === 'admin' ? 'admin' : 'client' });
+  }, [activateUser]);
+
+  useEffect(() => {
+    if (!relaySupabase) {
+      setPortalAuthLoading(false);
+      return;
+    }
+
+    let disposed = false;
+    const syncSession = async (session: Session | null) => {
+      if (disposed) return;
+      setPortalAuthLoading(false);
+      try {
+        await applyPortalSession(session);
+      } catch (error) {
+        if (!disposed) {
+          console.error('Unable to restore the signed-in portal session.', error);
+          setPortalAuthError(error instanceof Error ? error.message : 'Unable to restore the portal session.');
+        }
+      }
+    };
+
+    const { data: { subscription } } = relaySupabase.auth.onAuthStateChange((_event, session) => {
+      void syncSession(session);
+    });
+    void relaySupabase.auth.getSession().then(({ data, error }) => {
+      if (disposed) return;
+      if (error) {
+        setPortalAuthLoading(false);
+        setPortalAuthError(`Could not restore your sign-in: ${error.message}`);
+        return;
+      }
+      void syncSession(data.session);
+    }).catch(error => {
+      if (!disposed) {
+        setPortalAuthLoading(false);
+        setPortalAuthError(error instanceof Error ? error.message : 'Could not restore your sign-in.');
+      }
+    });
+
+    return () => {
+      disposed = true;
+      subscription.unsubscribe();
+    };
+  }, [applyPortalSession]);
+
+  useEffect(() => {
+    window.localStorage.setItem('gkb-theme', isLightMode ? 'light' : 'dark');
+  }, [isLightMode]);
+
+  const handleLoginSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setLoginError('');
+    setLoginMessage('');
+    if (!relaySupabase) {
+      setLoginError(relaySupabaseConfigError);
+      return;
+    }
+
+    setLoginBusy(true);
+    try {
+      if (creatingAccount) {
+        const { data, error } = await relaySupabase.auth.signUp({
+          email: loginEmail.trim(),
+          password: loginPassword
+        });
+        if (error) throw error;
+        if (!data.session) {
+          setLoginMessage('Account created. Check your email to confirm your address, then sign in.');
+          setCreatingAccount(false);
+          setLoginPassword('');
+          return;
+        }
+      } else {
+        const { error } = await relaySupabase.auth.signInWithPassword({
+          email: loginEmail.trim(),
+          password: loginPassword
+        });
+        if (error) throw error;
+      }
+      setLoginModalOpen(false);
+      clearInputs();
+    } catch (error) {
+      setLoginError(error instanceof Error ? error.message : 'Sign-in failed. Please try again.');
+    } finally {
+      setLoginBusy(false);
+    }
   };
 
-  const handleLogout = () => {
-    setUser(null);
-    setActiveTab('about');
-    setSelectedService(null);
-    setSelectedDevice(null);
-    setTestDevice(null);
+  const handleLogout = async () => {
+    if (!relaySupabase) {
+      setPortalAuthError(relaySupabaseConfigError);
+      return;
+    }
+    try {
+      const { error } = await relaySupabase.auth.signOut();
+      if (error) {
+        setPortalAuthError(`Could not sign out: ${error.message}`);
+        return;
+      }
+      setActiveTab('about');
+      setSelectedService(null);
+      setSelectedDevice(null);
+      setTestDevice(null);
+    } catch (error) {
+      setPortalAuthError(error instanceof Error ? `Could not sign out: ${error.message}` : 'Could not sign out.');
+    }
   };
 
   const handleServiceSelect = (service: ServiceType) => {
@@ -2186,6 +2287,7 @@ export default function GKBSite() {
       setActiveTab('service-portal');
     } else {
       setLoginError('');
+      setLoginMessage('');
       setLoginModalOpen(true);
     }
   };
@@ -2346,6 +2448,11 @@ export default function GKBSite() {
       visible: Boolean(user)
     },
     {
+      tab: 'orders',
+      label: user?.role === 'admin' ? 'Review Orders' : 'My Orders',
+      visible: Boolean(user)
+    },
+    {
       tab: 'service-portal',
       label: 'Service Portal',
       visible: Boolean(user && selectedService)
@@ -2426,6 +2533,14 @@ export default function GKBSite() {
               {isLightMode ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}
               <span className="hidden sm:inline">{isLightMode ? 'Dark mode' : 'Light mode'}</span>
             </button>
+            <button
+              type="button"
+              onClick={() => handleServiceSelect('retail-gadgets')}
+              className="rounded-lg border border-purple-400/40 bg-purple-500/10 px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-purple-200 transition-colors hover:border-purple-300 hover:bg-purple-500/20 sm:text-xs"
+              aria-label="Visit the shop"
+            >
+              Shop Now
+            </button>
             {user ? (
               <div className="flex items-center space-x-2 sm:space-x-3 bg-slate-900 border border-purple-500/30 px-2 sm:px-3 py-1.5 rounded-lg">
                 <div className="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></div>
@@ -2443,6 +2558,8 @@ export default function GKBSite() {
                 onClick={() => {
                   setSelectedService(null);
                   setLoginError('');
+                  setLoginMessage('');
+                  setCreatingAccount(false);
                   setLoginModalOpen(true);
                 }}
                 className="relative group px-3 sm:px-4 py-2 rounded-lg font-medium text-[10px] sm:text-xs tracking-wider uppercase bg-gradient-to-r from-cyan-500 to-purple-600 text-black font-bold shadow-[0_0_20px_rgba(6,182,212,0.4)] hover:shadow-[0_0_25px_rgba(168,85,247,0.6)] transition-all"
@@ -2459,6 +2576,11 @@ export default function GKBSite() {
 
       {/* Main Content Sections */}
       <main className="relative z-10 w-full flex-1 max-w-[1536px] mx-auto px-3 sm:px-5 lg:px-6 py-8">
+        {portalAuthError && (
+          <p role="alert" className="mx-auto mb-6 max-w-7xl rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">
+            {portalAuthError}
+          </p>
+        )}
 
         {/* ================= ABOUT US TAB ================= */}
         {activeTab === 'about' && (
@@ -2714,6 +2836,10 @@ export default function GKBSite() {
           </div>
         )}
 
+        {activeTab === 'orders' && user && (
+          <OrdersPortal user={user} />
+        )}
+
         {/* ================= PRIVATE DEVICE TEST PREVIEW ================= */}
         {activeTab === 'device-test' && user && testDevice && (
           <div className="mx-auto max-w-7xl space-y-6 animate-fadeIn">
@@ -2758,6 +2884,8 @@ export default function GKBSite() {
                    ? 'Relay state is synchronized through Supabase; physical relay output is not acknowledged by the current firmware.'
                    : selectedDevice
                      ? 'Device service dashboard. Sample readings are shown until live hardware telemetry is connected.'
+                     : selectedService === 'retail-gadgets'
+                       ? 'Submit a gadget order or track an existing order from your account.'
                      : 'Select a saved device from My Devices to open its service dashboard.'}
               </p>
             </div>
@@ -2788,6 +2916,20 @@ export default function GKBSite() {
                       ? <PrepaidEnergyMeterDashboard mode="service" />
                     : <GenericDeviceDashboard device={selectedDevice} mode="service" />}
               </div>
+            ) : selectedService === 'retail-gadgets' ? (
+              <section className="rounded-2xl border border-purple-500/25 bg-slate-900/50 p-6 sm:p-8">
+                <h3 className="text-xl font-bold text-white">Order and track gadgets</h3>
+                <p className="mt-2 text-sm text-slate-300">
+                  Submit the item and quantity you need, choose delivery or pickup, and follow order updates from your account.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('orders')}
+                  className="mt-5 rounded-lg bg-gradient-to-r from-cyan-500 to-purple-600 px-5 py-3 text-sm font-bold text-black transition-opacity hover:opacity-90"
+                >
+                  Place an order / Track my orders
+                </button>
+              </section>
             ) : (
               <section className="rounded-2xl border border-slate-800 bg-slate-900/50 p-6">
                 <p className="text-sm text-slate-300">No device dashboard is selected yet. Link a purchased device, then open it from your Linked devices list.</p>
@@ -2973,18 +3115,29 @@ export default function GKBSite() {
           <div className="w-full max-w-md p-8 rounded-2xl bg-slate-900 border border-cyan-500/40 shadow-[0_0_50px_rgba(6,182,212,0.2)] relative space-y-6">
             <div className="text-center space-y-1">
               <h3 className="text-xl font-bold text-white">
-                {selectedService === 'student-projects'
-                  ? 'Sign in for Student Project Solutions'
-                  : selectedService === 'retail-gadgets'
-                    ? 'Sign in for Retail Gadget Distribution'
-                    : 'GKB Portal Authentication'}
+                {creatingAccount
+                  ? 'Create your GKB account'
+                  : selectedService === 'student-projects'
+                    ? 'Sign in for Student Project Solutions'
+                    : selectedService === 'retail-gadgets'
+                      ? 'Sign in for Retail Gadget Distribution'
+                      : 'GKB Portal Sign In'}
               </h3>
-              <p className="text-xs text-slate-400">Sign in to view your service portal, devices, and demo checkout.</p>
+              <p className="text-xs text-slate-400">
+                {creatingAccount
+                  ? 'Create an account to place orders and track their status.'
+                  : 'Sign in to view your portal, devices, and orders.'}
+              </p>
             </div>
 
             {loginError && (
               <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-xs">
                 {loginError}
+              </div>
+            )}
+            {loginMessage && (
+              <div role="status" className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-200 text-xs">
+                {loginMessage}
               </div>
             )}
 
@@ -2993,7 +3146,7 @@ export default function GKBSite() {
                 <label className="text-xs text-slate-400 mb-1 block">Email Address</label>
                 <input 
                   type="email" 
-                  placeholder="e.g. zumkel023@gmail.com" 
+                  placeholder="you@example.com"
                   value={loginEmail}
                   onChange={(e) => setLoginEmail(e.target.value)}
                   className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-lg text-sm text-white focus:border-cyan-400 focus:outline-none"
@@ -3005,7 +3158,8 @@ export default function GKBSite() {
                 <label className="text-xs text-slate-400 mb-1 block">Password</label>
                 <input 
                   type="password" 
-                  placeholder="Password" 
+                  minLength={6}
+                  placeholder="At least 6 characters"
                   value={loginPassword}
                   onChange={(e) => setLoginPassword(e.target.value)}
                   className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-lg text-sm text-white focus:border-cyan-400 focus:outline-none"
@@ -3015,29 +3169,36 @@ export default function GKBSite() {
 
               <button 
                 type="submit"
-                className="w-full py-3 bg-gradient-to-r from-cyan-500 to-purple-600 text-black font-bold rounded-lg text-sm shadow-[0_0_15px_rgba(6,182,212,0.4)] hover:opacity-90 transition-opacity"
+                disabled={loginBusy || portalAuthLoading}
+                className="w-full py-3 bg-gradient-to-r from-cyan-500 to-purple-600 text-black font-bold rounded-lg text-sm shadow-[0_0_15px_rgba(6,182,212,0.4)] hover:opacity-90 transition-opacity disabled:cursor-wait disabled:opacity-60"
               >
-                Sign In
+                {loginBusy ? 'Please wait…' : creatingAccount ? 'Create account' : 'Sign In'}
               </button>
             </form>
 
-            <div className="relative flex py-2 items-center">
-              <div className="flex-grow border-t border-slate-800"></div>
-              <span className="flex-shrink mx-4 text-slate-500 text-[10px] uppercase tracking-widest">Or Quick Client Access</span>
-              <div className="flex-grow border-t border-slate-800"></div>
+            <div className="space-y-2 text-center">
+              <button
+                type="button"
+                onClick={() => {
+                  setCreatingAccount(!creatingAccount);
+                  setLoginError('');
+                  setLoginMessage('');
+                }}
+                className="text-xs font-semibold text-cyan-300 hover:text-cyan-200"
+              >
+                {creatingAccount ? 'Already have an account? Sign in' : 'New client? Create an account'}
+              </button>
+              <p className="text-[11px] text-slate-500">Admin access is granted separately by the GKB administrator.</p>
             </div>
-
-            <button 
-              onClick={handleGoogleMockLogin}
-              className="w-full py-2.5 bg-slate-950 border border-slate-700 hover:border-cyan-400 text-white rounded-lg text-xs font-medium flex items-center justify-center space-x-2 transition-all"
-            >
-              <Globe className="w-4 h-4 text-cyan-400" />
-              <span>Simulate Google Account Sign-In</span>
-            </button>
 
             <div className="text-center pt-2">
               <button 
-                onClick={() => setLoginModalOpen(false)}
+                onClick={() => {
+                  setLoginModalOpen(false);
+                  setLoginError('');
+                  setLoginMessage('');
+                  setCreatingAccount(false);
+                }}
                 className="text-xs text-slate-500 hover:text-slate-300 transition-colors"
               >
                 Cancel & Return Home

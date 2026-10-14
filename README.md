@@ -20,6 +20,19 @@ npm run preview
 
 Run the configured lint checks with `npm run lint`.
 
+## Store orders
+
+Clients create an account or sign in through Supabase Auth, open **Retail Gadget Distribution**, and choose **Place an order / Track my orders**. They can submit an item, quantity, contact phone, and delivery or pickup details. The **My Orders** view shows the order status and refreshes as the admin updates it. Admins use **Review Orders** to review every incoming order and set it to **Processing**, **Delivered**, or **Picked up**.
+
+To enable cross-device order syncing:
+
+1. Configure `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` for the site. These are browser-safe project values; never use a Supabase service-role/secret key in the frontend.
+2. Run [`supabase/orders_setup.sql`](./supabase/orders_setup.sql) in the Supabase SQL Editor.
+3. Create the admin account from the portal using the email in the commented promotion query at the end of the SQL file. Run that query in the SQL Editor to grant the account admin access, then sign out and back in. Client accounts can register from the portal and do not need a manual role entry.
+4. If Supabase email confirmation is enabled, users must confirm their address before signing in. An admin role is assigned to the exact Auth account promoted in the SQL Editor; the browser cannot grant itself admin access.
+
+Order records are protected by row-level security: clients can only see their own orders, and only promoted admins can see all orders or change order statuses. The portal login now uses Supabase Auth rather than the previous simulated credentials.
+
 ## Device portal
 
 Sign in to the portal and open **My Devices**:
