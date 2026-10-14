@@ -2089,6 +2089,7 @@ export default function GKBSite() {
   const [loginError, setLoginError] = useState('');
   const [loginMessage, setLoginMessage] = useState('');
   const [loginBusy, setLoginBusy] = useState(false);
+  const [confirmationPending, setConfirmationPending] = useState(false);
   const [creatingAccount, setCreatingAccount] = useState(false);
   const [portalAuthLoading, setPortalAuthLoading] = useState(true);
   const [portalAuthError, setPortalAuthError] = useState('');
@@ -2242,6 +2243,7 @@ export default function GKBSite() {
         if (error) throw error;
         if (!data.session) {
           setLoginMessage('Account created. Check your email to confirm your address, then sign in.');
+          setConfirmationPending(true);
           setCreatingAccount(false);
           setLoginPassword('');
           return;
@@ -2257,6 +2259,29 @@ export default function GKBSite() {
       clearInputs();
     } catch (error) {
       setLoginError(error instanceof Error ? error.message : 'Sign-in failed. Please try again.');
+    } finally {
+      setLoginBusy(false);
+    }
+  };
+
+  const handleResendConfirmation = async () => {
+    setLoginError('');
+    setLoginMessage('');
+    if (!relaySupabase) {
+      setLoginError(relaySupabaseConfigError);
+      return;
+    }
+
+    setLoginBusy(true);
+    try {
+      const { error } = await relaySupabase.auth.resend({
+        type: 'signup',
+        email: loginEmail.trim()
+      });
+      if (error) throw error;
+      setLoginMessage('Confirmation email sent again. Check your inbox and spam folder.');
+    } catch (error) {
+      setLoginError(error instanceof Error ? error.message : 'Could not resend the confirmation email.');
     } finally {
       setLoginBusy(false);
     }
@@ -3138,8 +3163,18 @@ export default function GKBSite() {
               </div>
             )}
             {loginMessage && (
-              <div role="status" className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-200 text-xs">
+              <div role="status" className="space-y-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3 text-xs text-emerald-200">
                 {loginMessage}
+                {confirmationPending && !creatingAccount && (
+                  <button
+                    type="button"
+                    onClick={() => void handleResendConfirmation()}
+                    disabled={loginBusy}
+                    className="block font-semibold text-emerald-100 underline underline-offset-2 disabled:opacity-60"
+                  >
+                    {loginBusy ? 'Sending…' : 'Resend confirmation email'}
+                  </button>
+                )}
               </div>
             )}
 
