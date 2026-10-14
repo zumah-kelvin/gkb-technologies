@@ -2089,7 +2089,6 @@ export default function GKBSite() {
   const [loginError, setLoginError] = useState('');
   const [loginMessage, setLoginMessage] = useState('');
   const [loginBusy, setLoginBusy] = useState(false);
-  const [confirmationPending, setConfirmationPending] = useState(false);
   const [creatingAccount, setCreatingAccount] = useState(false);
   const [portalAuthLoading, setPortalAuthLoading] = useState(true);
   const [portalAuthError, setPortalAuthError] = useState('');
@@ -2243,7 +2242,6 @@ export default function GKBSite() {
         if (error) throw error;
         if (!data.session) {
           setLoginMessage('Account created. Check your email to confirm your address, then sign in.');
-          setConfirmationPending(true);
           setCreatingAccount(false);
           setLoginPassword('');
           return;
@@ -3165,16 +3163,6 @@ export default function GKBSite() {
             {loginMessage && (
               <div role="status" className="space-y-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3 text-xs text-emerald-200">
                 {loginMessage}
-                {confirmationPending && !creatingAccount && (
-                  <button
-                    type="button"
-                    onClick={() => void handleResendConfirmation()}
-                    disabled={loginBusy}
-                    className="block font-semibold text-emerald-100 underline underline-offset-2 disabled:opacity-60"
-                  >
-                    {loginBusy ? 'Sending…' : 'Resend confirmation email'}
-                  </button>
-                )}
               </div>
             )}
 
@@ -3225,6 +3213,16 @@ export default function GKBSite() {
               >
                 {creatingAccount ? 'Already have an account? Sign in' : 'New client? Create an account'}
               </button>
+              {!creatingAccount && (
+                <button
+                  type="button"
+                  onClick={() => void handleResendConfirmation()}
+                  disabled={loginBusy || !loginEmail.trim()}
+                  className="block w-full text-[11px] font-semibold text-emerald-300 hover:text-emerald-200 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {loginBusy ? 'Sending…' : 'Resend confirmation email'}
+                </button>
+              )}
               <div className="flex items-center justify-center gap-3 text-[11px]">
                 <button
                   type="button"
