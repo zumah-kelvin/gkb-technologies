@@ -20,18 +20,39 @@ npm run preview
 
 Run the configured lint checks with `npm run lint`.
 
+## Configure Supabase authentication
+
+The portal uses Supabase Auth for client sign-up, sign-in, and email confirmation. To connect your Supabase project to localhost:
+
+1. In the Supabase Dashboard, open **Project Settings → API** and copy the **Project URL** and the public **anon** or **publishable** key. Never use the `service_role` or secret key in the browser.
+2. Put those values in the ignored local `.env` file:
+
+   ```env
+   VITE_SUPABASE_URL=https://YOUR_PROJECT_REF.supabase.co
+   VITE_SUPABASE_ANON_KEY=YOUR_PUBLIC_ANON_OR_PUBLISHABLE_KEY
+   ```
+
+3. In Supabase, enable the **Email** provider under **Authentication → Sign In / Providers**.
+4. Under **Authentication → URL Configuration**, add these allowed redirect URLs:
+   - `http://localhost:5173/**`
+   - `http://127.0.0.1:5173/**`
+   - `https://gkb-company-ltd.netlify.app/**`
+5. Restart the local Vite server after editing `.env`. Sign-up confirmation links return to the same site (localhost or Netlify) where the account was created.
+
+The `.env` file is ignored by Git. Configure `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` separately in Netlify's site environment variables to enable authentication on the deployed site.
+
 ## Store orders
 
-Clients create an account or sign in through Supabase Auth, open **Retail Gadget Distribution**, and choose **Place an order / Track my orders**. They can submit an item, quantity, contact phone, and delivery or pickup details. The **My Orders** view shows the order status and refreshes as the admin updates it. Admins use **Review Orders** to review every incoming order and set it to **Processing**, **Delivered**, or **Picked up**.
+Clients create an account or sign in through Supabase Auth, open **Retail Gadget Distribution**, and choose **Place an order / Track my orders**. They can submit an item, quantity, contact phone, and delivery or pickup details. **My Orders** shows the latest status and refreshes as the admin updates it. Admins open **Review Orders** to review incoming orders and set each order to **Processing**, **Delivered**, or **Picked up**.
 
-To enable cross-device order syncing:
+To enable order syncing across client and admin devices:
 
-1. Configure `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` for the site. These are browser-safe project values; never use a Supabase service-role/secret key in the frontend.
+1. Complete [Supabase authentication setup](#configure-supabase-authentication).
 2. Run [`supabase/orders_setup.sql`](./supabase/orders_setup.sql) in the Supabase SQL Editor.
-3. Create the admin account from the portal using the email in the commented promotion query at the end of the SQL file. Run that query in the SQL Editor to grant the account admin access, then sign out and back in. Client accounts can register from the portal and do not need a manual role entry.
-4. If Supabase email confirmation is enabled, users must confirm their address before signing in. An admin role is assigned to the exact Auth account promoted in the SQL Editor; the browser cannot grant itself admin access.
+3. Create the admin account through the portal, then run the commented promotion query at the end of the SQL file for that exact Auth account. Sign out and back in after promoting it. Other signed-in accounts are clients and can only see their own orders.
+4. Clients must confirm their email before signing in when email confirmation is enabled in Supabase.
 
-Order records are protected by row-level security: clients can only see their own orders, and only promoted admins can see all orders or change order statuses. The portal login now uses Supabase Auth rather than the previous simulated credentials.
+Order records use Supabase row-level security. Clients can insert and view only their own orders; only an admin account explicitly promoted in the database can review all orders or update their status.
 
 ## Device portal
 

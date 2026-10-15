@@ -18,8 +18,6 @@ type UserType = {
   email: string;
 };
 
-const ADMIN_PORTAL_EMAIL = 'zumkel023@gmail.com';
-
 type Device = {
   id: number;
   name: string;
@@ -2082,7 +2080,7 @@ export default function GKBSite() {
   const [isLightMode, setIsLightMode] = useState(
     () => window.localStorage.getItem('gkb-theme') === 'light'
   );
-  const [user, setUser] = useState<UserType | null>(null);
+  const [user, setUser] = useState<UserType | null>(null); // null, { role: 'admin', email: '...' }, or { role: 'client', email: '...' }
   const [loginModalOpen, setLoginModalOpen] = useState(false);
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
@@ -2237,7 +2235,10 @@ export default function GKBSite() {
       if (creatingAccount) {
         const { data, error } = await relaySupabase.auth.signUp({
           email: loginEmail.trim(),
-          password: loginPassword
+          password: loginPassword,
+          options: {
+            emailRedirectTo: window.location.origin
+          }
         });
         if (error) throw error;
         if (!data.session) {
@@ -2274,7 +2275,10 @@ export default function GKBSite() {
     try {
       const { error } = await relaySupabase.auth.resend({
         type: 'signup',
-        email: loginEmail.trim()
+        email: loginEmail.trim(),
+        options: {
+          emailRedirectTo: window.location.origin
+        }
       });
       if (error) throw error;
       setLoginMessage('Confirmation email sent again. Check your inbox and spam folder.');
@@ -2558,14 +2562,6 @@ export default function GKBSite() {
               {isLightMode ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}
               <span className="hidden sm:inline">{isLightMode ? 'Dark mode' : 'Light mode'}</span>
             </button>
-            <button
-              type="button"
-              onClick={() => handleServiceSelect('retail-gadgets')}
-              className="rounded-lg border border-purple-400/40 bg-purple-500/10 px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-purple-200 transition-colors hover:border-purple-300 hover:bg-purple-500/20 sm:text-xs"
-              aria-label="Visit the shop"
-            >
-              Shop Now
-            </button>
             {user ? (
               <div className="flex items-center space-x-2 sm:space-x-3 bg-slate-900 border border-purple-500/30 px-2 sm:px-3 py-1.5 rounded-lg">
                 <div className="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></div>
@@ -2583,8 +2579,6 @@ export default function GKBSite() {
                 onClick={() => {
                   setSelectedService(null);
                   setLoginError('');
-                  setLoginMessage('');
-                  setCreatingAccount(false);
                   setLoginModalOpen(true);
                 }}
                 className="relative group px-3 sm:px-4 py-2 rounded-lg font-medium text-[10px] sm:text-xs tracking-wider uppercase bg-gradient-to-r from-cyan-500 to-purple-600 text-black font-bold shadow-[0_0_20px_rgba(6,182,212,0.4)] hover:shadow-[0_0_25px_rgba(168,85,247,0.6)] transition-all"
@@ -2604,6 +2598,11 @@ export default function GKBSite() {
         {portalAuthError && (
           <p role="alert" className="mx-auto mb-6 max-w-7xl rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">
             {portalAuthError}
+          </p>
+        )}
+        {portalAuthLoading && (
+          <p role="status" className="mx-auto mb-6 max-w-7xl rounded-xl border border-slate-800 bg-slate-900/50 px-4 py-3 text-sm text-slate-400">
+            Checking your portal sign-in…
           </p>
         )}
 
@@ -2861,10 +2860,6 @@ export default function GKBSite() {
           </div>
         )}
 
-        {activeTab === 'orders' && user && (
-          <OrdersPortal user={user} />
-        )}
-
         {/* ================= PRIVATE DEVICE TEST PREVIEW ================= */}
         {activeTab === 'device-test' && user && testDevice && (
           <div className="mx-auto max-w-7xl space-y-6 animate-fadeIn">
@@ -2909,8 +2904,6 @@ export default function GKBSite() {
                    ? 'Relay state is synchronized through Supabase; physical relay output is not acknowledged by the current firmware.'
                    : selectedDevice
                      ? 'Device service dashboard. Sample readings are shown until live hardware telemetry is connected.'
-                     : selectedService === 'retail-gadgets'
-                       ? 'Submit a gadget order or track an existing order from your account.'
                      : 'Select a saved device from My Devices to open its service dashboard.'}
               </p>
             </div>
@@ -2968,6 +2961,10 @@ export default function GKBSite() {
               </section>
             )}
           </div>
+        )}
+
+        {activeTab === 'orders' && user && (
+          <OrdersPortal user={user} />
         )}
 
         {/* ================= ADMIN COMPLAINTS TAB ================= */}
@@ -3140,19 +3137,13 @@ export default function GKBSite() {
           <div className="w-full max-w-md p-8 rounded-2xl bg-slate-900 border border-cyan-500/40 shadow-[0_0_50px_rgba(6,182,212,0.2)] relative space-y-6">
             <div className="text-center space-y-1">
               <h3 className="text-xl font-bold text-white">
-                {creatingAccount
-                  ? 'Create your GKB account'
-                  : selectedService === 'student-projects'
-                    ? 'Sign in for Student Project Solutions'
-                    : selectedService === 'retail-gadgets'
-                      ? 'Sign in for Retail Gadget Distribution'
-                      : 'GKB Portal Sign In'}
+                {selectedService === 'student-projects'
+                  ? 'Sign in for Student Project Solutions'
+                  : selectedService === 'retail-gadgets'
+                    ? 'Sign in for Retail Gadget Distribution'
+                    : 'GKB Portal Authentication'}
               </h3>
-              <p className="text-xs text-slate-400">
-                {creatingAccount
-                  ? 'Create an account to place orders and track their status. Admin access is granted separately.'
-                  : 'Sign in to view your portal, devices, and orders.'}
-              </p>
+              <p className="text-xs text-slate-400">Sign in to view your service portal, devices, and demo checkout.</p>
             </div>
 
             {loginError && (
@@ -3161,7 +3152,7 @@ export default function GKBSite() {
               </div>
             )}
             {loginMessage && (
-              <div role="status" className="space-y-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3 text-xs text-emerald-200">
+              <div role="status" className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3 text-xs text-emerald-200">
                 {loginMessage}
               </div>
             )}
@@ -3171,6 +3162,7 @@ export default function GKBSite() {
                 <label className="text-xs text-slate-400 mb-1 block">Email Address</label>
                 <input 
                   type="email" 
+                  autoComplete="email"
                   placeholder="you@example.com"
                   value={loginEmail}
                   onChange={(e) => setLoginEmail(e.target.value)}
@@ -3183,8 +3175,9 @@ export default function GKBSite() {
                 <label className="text-xs text-slate-400 mb-1 block">Password</label>
                 <input 
                   type="password" 
+                  autoComplete={creatingAccount ? 'new-password' : 'current-password'}
                   minLength={6}
-                  placeholder="At least 6 characters"
+                  placeholder="Password"
                   value={loginPassword}
                   onChange={(e) => setLoginPassword(e.target.value)}
                   className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-lg text-sm text-white focus:border-cyan-400 focus:outline-none"
@@ -3194,76 +3187,45 @@ export default function GKBSite() {
 
               <button 
                 type="submit"
-                disabled={loginBusy || portalAuthLoading}
+                disabled={loginBusy}
                 className="w-full py-3 bg-gradient-to-r from-cyan-500 to-purple-600 text-black font-bold rounded-lg text-sm shadow-[0_0_15px_rgba(6,182,212,0.4)] hover:opacity-90 transition-opacity disabled:cursor-wait disabled:opacity-60"
               >
-                {loginBusy ? 'Please wait…' : creatingAccount ? 'Create account' : 'Sign In'}
+                {loginBusy ? 'Working…' : creatingAccount ? 'Create account' : 'Sign In'}
               </button>
             </form>
 
-            <div className="space-y-2 text-center">
+            <div className="flex flex-wrap justify-center gap-x-4 gap-y-2 text-xs">
               <button
                 type="button"
+                disabled={loginBusy}
                 onClick={() => {
-                  setCreatingAccount(!creatingAccount);
+                  setCreatingAccount(value => !value);
                   setLoginError('');
                   setLoginMessage('');
                 }}
-                className="text-xs font-semibold text-cyan-300 hover:text-cyan-200"
+                className="text-cyan-300 transition-colors hover:text-cyan-200 disabled:opacity-50"
               >
-                {creatingAccount ? 'Already have an account? Sign in' : 'New client? Create an account'}
+                {creatingAccount ? 'Already registered? Sign in' : 'Create a client account'}
               </button>
-              {!creatingAccount && (
+              {loginMessage.includes('confirm your address') && (
                 <button
                   type="button"
+                  disabled={loginBusy}
                   onClick={() => void handleResendConfirmation()}
-                  disabled={loginBusy || !loginEmail.trim()}
-                  className="block w-full text-[11px] font-semibold text-emerald-300 hover:text-emerald-200 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="text-cyan-300 transition-colors hover:text-cyan-200 disabled:opacity-50"
                 >
-                  {loginBusy ? 'Sending…' : 'Resend confirmation email'}
+                  Resend confirmation email
                 </button>
               )}
-              <div className="flex items-center justify-center gap-3 text-[11px]">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setCreatingAccount(false);
-                    setLoginEmail(ADMIN_PORTAL_EMAIL);
-                    setLoginPassword('');
-                    setLoginError('');
-                    setLoginMessage('');
-                  }}
-                  className="font-semibold text-purple-300 hover:text-purple-200"
-                >
-                  Admin sign in
-                </button>
-                <span className="text-slate-600">·</span>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setCreatingAccount(true);
-                    setLoginEmail(ADMIN_PORTAL_EMAIL);
-                    setLoginPassword('');
-                    setLoginError('');
-                    setLoginMessage('');
-                  }}
-                  className="font-semibold text-purple-300 hover:text-purple-200"
-                >
-                  First-time admin setup
-                </button>
-              </div>
-              <p className="text-[11px] text-slate-500">
-                Admin email: {ADMIN_PORTAL_EMAIL}. Choose your own password; then promote this account in Supabase using the setup instructions.
-              </p>
             </div>
 
             <div className="text-center pt-2">
               <button 
+                type="button"
                 onClick={() => {
                   setLoginModalOpen(false);
                   setLoginError('');
                   setLoginMessage('');
-                  setCreatingAccount(false);
                 }}
                 className="text-xs text-slate-500 hover:text-slate-300 transition-colors"
               >
