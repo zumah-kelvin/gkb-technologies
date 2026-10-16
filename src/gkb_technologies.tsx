@@ -2472,14 +2472,16 @@ export default function GKBSite() {
   const navigationItems = [
     { tab: 'about', label: 'About Us', visible: true },
     {
-      tab: 'devices',
-      label: user?.role === 'admin' ? 'Admin Portal (Devices)' : 'My Devices',
+      tab: selectedService === 'retail-gadgets' && user?.role === 'client' ? 'orders' : 'devices',
+      label: selectedService === 'retail-gadgets' && user?.role === 'client'
+        ? 'Track Order'
+        : user?.role === 'admin' ? 'Admin Portal (Devices)' : 'My Devices',
       visible: Boolean(user)
     },
     {
       tab: 'orders',
       label: user?.role === 'admin' ? 'Review Orders' : 'My Orders',
-      visible: Boolean(user)
+      visible: Boolean(user) && !(selectedService === 'retail-gadgets' && user?.role === 'client')
     },
     {
       tab: 'service-portal',
