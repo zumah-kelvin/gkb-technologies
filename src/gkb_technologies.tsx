@@ -2195,6 +2195,7 @@ export default function GKBSite() {
   const [selectedService, setSelectedService] = useState<ServiceType | null>(null);
   const [selectedDevice, setSelectedDevice] = useState<Device | null>(null);
   const [testDevice, setTestDevice] = useState<Device | null>(null);
+  const [selectedOrderPrice, setSelectedOrderPrice] = useState<number | null>(null);
 
   // Admin / Client Dynamic App Data
   const [devices, setDevices] = useState<Device[]>(() => {
@@ -3502,7 +3503,11 @@ export default function GKBSite() {
                     {user.role !== 'admin' && (
                       <button
                         type="button"
-                        onClick={() => setActiveTab('orders')}
+                        onClick={() => {
+                          setSelectedOrderPrice(null);
+                          setSelectedOrderProduct('');
+                          setActiveTab('orders');
+                        }}
                         className="rounded-lg bg-gradient-to-r from-cyan-500 to-purple-600 px-5 py-2.5 text-sm font-bold text-black"
                       >
                         Place Order
@@ -3560,6 +3565,7 @@ export default function GKBSite() {
                                 type="button"
                                 onClick={() => {
                                   setSelectedOrderProduct(`${item.brand} ${item.title}`);
+                                  setSelectedOrderPrice(item.price);
                                   setActiveTab('orders');
                                 }}
                                 className="w-full rounded-lg bg-gradient-to-r from-cyan-500 to-purple-600 px-3 py-2.5 text-xs font-bold text-black sm:px-4 sm:text-sm"
@@ -3593,7 +3599,11 @@ export default function GKBSite() {
           <OrdersPortal
             user={user}
             initialProductName={selectedOrderProduct}
-            onOrderSubmitted={() => setSelectedOrderProduct('')}
+            initialProductPrice={selectedOrderPrice}
+            onOrderSubmitted={() => {
+              setSelectedOrderProduct('');
+              setSelectedOrderPrice(null);
+            }}
           />
         )}
 

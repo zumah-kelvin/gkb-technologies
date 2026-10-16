@@ -58,10 +58,12 @@ function errorMessage(error: unknown): string {
 export default function OrdersPortal({
   user,
   initialProductName = '',
+  initialProductPrice = null,
   onOrderSubmitted
 }: {
   user: PortalUser;
   initialProductName?: string;
+  initialProductPrice?: number | null;
   onOrderSubmitted?: () => void;
 }) {
   const isAdmin = user.role === 'admin';
@@ -73,6 +75,12 @@ export default function OrdersPortal({
   const [saving, setSaving] = useState(false);
   const [updatingOrderId, setUpdatingOrderId] = useState('');
   const [productName, setProductName] = useState(initialProductName);
+  const [orderConfirmation, setOrderConfirmation] = useState<{
+    productName: string;
+    quantity: number;
+    total: number | null;
+    orderId: string;
+  } | null>(null);
   const [quantity, setQuantity] = useState('1');
   const [customerName, setCustomerName] = useState(() =>
     [user.firstName, user.lastName].filter(Boolean).join(' ')
@@ -148,18 +156,25 @@ export default function OrdersPortal({
 
     setSaving(true);
     try {
-      const { error: insertError } = await relaySupabase.from('gkb_orders').insert({
+      const orderedProduct = productName.trim();
+      const { data: createdOrder, error: insertError } = await relaySupabase.from('gkb_orders').insert({
         user_id: user.id,
         customer_email: user.email,
-        product_name: productName.trim(),
+        product_name: orderedProduct,
         quantity: parsedQuantity,
         customer_name: customerName.trim(),
         customer_phone: customerPhone.trim(),
         fulfillment_method: fulfillmentMethod,
         delivery_address: fulfillmentMethod === 'delivery' ? deliveryAddress.trim() : ''
-      });
+      }).select('id').single();
       if (insertError) throw insertError;
 
+      setOrderConfirmation({
+        productName: orderedProduct,
+        quantity: parsedQuantity,
+        total: initialProductPrice === null ? null : initialProductPrice * parsedQuantity,
+        orderId: createdOrder.id
+      });
       setProductName('');
       setQuantity('1');
       setCustomerName('');
@@ -195,6 +210,86 @@ export default function OrdersPortal({
       setUpdatingOrderId('');
     }
   };
+
+  if (orderConfirmation && !isAdmin) {
+    return (
+      <main className="mx-auto max-w-3xl space-y-6 animate-fadeIn">
+        <section className="rounded-2xl border border-emerald-500/30 bg-slate-900/70 p-6 text-center sm:p-8">
+          <CheckCircle className="mx-auto h-12 w-12 text-emerald-300" aria-hidden="true" />
+          <p className="mt-4 text-xs font-bold uppercase tracking-[0.18em] text-emerald-300">Order received</p>
+          <h1 className="mt-2 text-3xl font-bold text-white">Thank you for your order!</h1>
+          <p className="mt-3 text-sm leading-relaxed text-slate-300">
+            Your request has been saved. Use the MTN Mobile Money details below to make payment.
+            GKB will confirm your order and payment before processing.
+          </p>
+        </section>
+
+        <section className="rounded-2xl border border-slate-800 bg-slate-900/70 p-6 sm:p-8">
+          <h2 className="text-lg font-bold text-white">Order summary</h2>
+          <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
+            <div>
+              <dt className="text-slate-500">Order reference</dt>
+              <dd className="mt-1 break-all font-mono text-slate-200">{orderConfirmation.orderId}</dd>
+            </div>
+            <div>
+              <dt className="text-slate-500">Item</dt>
+              <dd className="mt-1 font-semibold text-slate-200">{orderConfirmation.productName}</dd>
+            </div>
+            <div>
+              <dt className="text-slate-500">Quantity</dt>
+              <dd className="mt-1 font-semibold text-slate-200">{orderConfirmation.quantity}</dd>
+            </div>
+            <div>
+              <dt className="text-slate-500">Amount to pay</dt>
+              <dd className="mt-1 font-bold text-emerald-300">
+                {orderConfirmation.total === null
+                  ? 'GKB will confirm the amount'
+                  : new Intl.NumberFormat('en-GH', { style: 'currency', currency: 'GHS' }).format(orderConfirmation.total)}
+              </dd>
+            </div>
+          </dl>
+        </section>
+
+        <section className="overflow-hidden rounded-2xl border border-yellow-500/30 bg-slate-900/80">
+          <div className="border-b border-yellow-500/20 bg-yellow-500/5 p-5 sm:p-6">
+            <p className="text-xs font-bold uppercase tracking-wider text-yellow-300">Payment instructions</p>
+            <h2 className="mt-2 text-xl font-bold text-white">Send payment with MTN Mobile Money</h2>
+            <p className="mt-2 text-sm text-slate-300">Enter the details below in your MTN MoMo payment flow and verify the recipient name before confirming.</p>
+          </div>
+          <dl className="space-y-4 p-5 sm:p-6">
+            <div>
+              <dt className="text-xs font-semibold uppercase tracking-wider text-slate-500">Network</dt>
+              <dd className="mt-1 text-base font-semibold text-white">MTN Mobile Money</dd>
+            </div>
+            <div>
+              <dt className="text-xs font-semibold uppercase tracking-wider text-slate-500">Payment number</dt>
+              <dd className="mt-1 text-2xl font-black tracking-wider text-yellow-200">0552117787</dd>
+            </div>
+            <div>
+              <dt className="text-xs font-semibold uppercase tracking-wider text-slate-500">Account holder</dt>
+              <dd className="mt-1 text-lg font-bold text-white">zumah kelvin🥳😍</dd>
+            </div>
+          </dl>
+          <img
+            src="/mtn-momo-account-holder.png"
+            alt="GKB Technologies account holder"
+            className="max-h-96 w-full object-cover object-center"
+          />
+        </section>
+
+        <p className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-4 text-xs leading-relaxed text-amber-100">
+          Do not share your Mobile Money PIN or one-time password. This page displays payment instructions only; it does not initiate or verify a payment.
+        </p>
+        <button
+          type="button"
+          onClick={() => setOrderConfirmation(null)}
+          className="w-full rounded-lg bg-gradient-to-r from-cyan-500 to-purple-600 px-5 py-3 text-sm font-bold text-black"
+        >
+          View My Orders
+        </button>
+      </main>
+    );
+  }
 
   return (
     <div className="mx-auto max-w-6xl space-y-8 animate-fadeIn">

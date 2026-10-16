@@ -50,6 +50,8 @@ The portal restores a signed-in Supabase session after a page refresh. Admin acc
 
 Clients create an account or sign in through Supabase Auth, open **Retail Gadget Distribution**, and choose **Place an order / Track my orders**. They can submit an item, quantity, contact phone, and delivery or pickup details. **My Orders** shows the latest status and refreshes as the admin updates it. Admins open **Review Orders** to review incoming orders and set each order to **Processing**, **Delivered**, or **Picked up**.
 
+After an order is saved, clients see an MTN Mobile Money instruction page for `0552117787` (account holder `zumah kelvin🥳😍`). Catalog orders display listing price multiplied by quantity; custom products display that GKB will confirm the amount. This is a manual payment instruction only and does not initiate or verify Mobile Money payments.
+
 To enable order syncing across client and admin devices:
 
 1. Complete [Supabase authentication setup](#configure-supabase-authentication).
