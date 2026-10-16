@@ -55,7 +55,15 @@ function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : 'An unexpected order error occurred.';
 }
 
-export default function OrdersPortal({ user }: { user: PortalUser }) {
+export default function OrdersPortal({
+  user,
+  initialProductName = '',
+  onOrderSubmitted
+}: {
+  user: PortalUser;
+  initialProductName?: string;
+  onOrderSubmitted?: () => void;
+}) {
   const isAdmin = user.role === 'admin';
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
@@ -64,7 +72,7 @@ export default function OrdersPortal({ user }: { user: PortalUser }) {
   const [successMessage, setSuccessMessage] = useState('');
   const [saving, setSaving] = useState(false);
   const [updatingOrderId, setUpdatingOrderId] = useState('');
-  const [productName, setProductName] = useState('');
+  const [productName, setProductName] = useState(initialProductName);
   const [quantity, setQuantity] = useState('1');
   const [customerName, setCustomerName] = useState(() =>
     [user.firstName, user.lastName].filter(Boolean).join(' ')
@@ -72,6 +80,10 @@ export default function OrdersPortal({ user }: { user: PortalUser }) {
   const [customerPhone, setCustomerPhone] = useState(user.phone ?? '');
   const [fulfillmentMethod, setFulfillmentMethod] = useState<FulfillmentMethod>('delivery');
   const [deliveryAddress, setDeliveryAddress] = useState(user.location ?? '');
+
+  useEffect(() => {
+    if (initialProductName) setProductName(initialProductName);
+  }, [initialProductName]);
 
   const loadOrders = useCallback(async (showLoading = false) => {
     if (!relaySupabase) {
@@ -155,6 +167,7 @@ export default function OrdersPortal({ user }: { user: PortalUser }) {
       setDeliveryAddress('');
       setFulfillmentMethod('delivery');
       setSuccessMessage('Order submitted. You can follow its status below.');
+      onOrderSubmitted?.();
       await loadOrders(true);
     } catch (submitError) {
       setFormError(`Order could not be submitted: ${errorMessage(submitError)}`);
@@ -299,7 +312,7 @@ export default function OrdersPortal({ user }: { user: PortalUser }) {
               disabled={saving}
               className="rounded-lg bg-gradient-to-r from-cyan-500 to-purple-600 px-5 py-3 text-sm font-bold text-black transition-opacity hover:opacity-90 disabled:cursor-wait disabled:opacity-60 sm:col-span-2"
             >
-              {saving ? 'Submitting order…' : 'Submit order'}
+              {saving ? 'Placing order…' : 'Place Order'}
             </button>
           </form>
         </section>

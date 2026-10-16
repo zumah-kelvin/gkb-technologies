@@ -2179,6 +2179,7 @@ export default function GKBSite() {
   const [inventoryRam, setInventoryRam] = useState(inventoryRamOptions[1]);
   const [inventoryStorage, setInventoryStorage] = useState(inventoryStorageOptions[2]);
   const [inventoryImage, setInventoryImage] = useState<File | null>(null);
+  const [selectedOrderProduct, setSelectedOrderProduct] = useState('');
 
   const activateUser = useCallback((account: UserType) => {
     setUser(account);
@@ -2866,16 +2867,14 @@ export default function GKBSite() {
   const navigationItems = [
     { tab: 'about', label: 'About Us', visible: true },
     {
-      tab: selectedService === 'retail-gadgets' && user?.role === 'client' ? 'orders' : 'devices',
-      label: selectedService === 'retail-gadgets' && user?.role === 'client'
-        ? 'Track Order'
-        : user?.role === 'admin' ? 'Admin Portal (Devices)' : 'My Devices',
+      tab: 'devices',
+      label: user?.role === 'admin' ? 'Admin Portal (Devices)' : 'My Devices',
       visible: Boolean(user)
     },
     {
       tab: 'orders',
       label: user?.role === 'admin' ? 'Review Orders' : 'My Orders',
-      visible: Boolean(user) && !(selectedService === 'retail-gadgets' && user?.role === 'client')
+      visible: Boolean(user)
     },
     {
       tab: 'service-portal',
@@ -3451,7 +3450,7 @@ export default function GKBSite() {
                         onClick={() => setActiveTab('orders')}
                         className="rounded-lg bg-gradient-to-r from-cyan-500 to-purple-600 px-5 py-2.5 text-sm font-bold text-black"
                       >
-                        Place an order / Track my orders
+                        Place Order
                       </button>
                     )}
                   </div>
@@ -3468,7 +3467,7 @@ export default function GKBSite() {
                       {user.role === 'admin' ? 'No devices have been added yet.' : 'There are no retail devices available right now.'}
                     </p>
                   ) : (
-                    <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
+                    <div className="grid grid-cols-2 gap-3 sm:gap-5 sm:grid-cols-3 xl:grid-cols-4">
                       {inventoryItems.map(item => (
                         <article key={item.id} className={`overflow-hidden rounded-2xl border bg-slate-900/70 ${item.active ? 'border-slate-800' : 'border-amber-500/30 opacity-75'}`}>
                           <img
@@ -3488,7 +3487,7 @@ export default function GKBSite() {
                             <p className="text-xl font-bold text-emerald-300">
                               {new Intl.NumberFormat('en-GH', { style: 'currency', currency: 'GHS' }).format(item.price)}
                             </p>
-                            <div className="flex gap-2">
+                            <div className="flex flex-wrap gap-2">
                               <span className="rounded-md border border-slate-700 bg-slate-950 px-2.5 py-1.5 text-xs text-slate-300">RAM · {item.ram}</span>
                               <span className="rounded-md border border-slate-700 bg-slate-950 px-2.5 py-1.5 text-xs text-slate-300">Storage · {item.storage}</span>
                             </div>
@@ -3504,10 +3503,13 @@ export default function GKBSite() {
                             ) : (
                               <button
                                 type="button"
-                                onClick={() => setActiveTab('orders')}
-                                className="w-full rounded-lg bg-gradient-to-r from-cyan-500 to-purple-600 px-4 py-2.5 text-sm font-bold text-black"
+                                onClick={() => {
+                                  setSelectedOrderProduct(`${item.brand} ${item.title}`);
+                                  setActiveTab('orders');
+                                }}
+                                className="w-full rounded-lg bg-gradient-to-r from-cyan-500 to-purple-600 px-3 py-2.5 text-xs font-bold text-black sm:px-4 sm:text-sm"
                               >
-                                Order / track
+                                Place Order
                               </button>
                             )}
                           </div>
@@ -3533,7 +3535,11 @@ export default function GKBSite() {
         )}
 
         {activeTab === 'orders' && user && (
-          <OrdersPortal user={user} />
+          <OrdersPortal
+            user={user}
+            initialProductName={selectedOrderProduct}
+            onOrderSubmitted={() => setSelectedOrderProduct('')}
+          />
         )}
 
         {/* ================= ADMIN COMPLAINTS TAB ================= */}
