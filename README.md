@@ -33,11 +33,12 @@ The portal uses Supabase Auth for client sign-up, sign-in, and email confirmatio
    ```
 
 3. In Supabase, enable the **Email** provider under **Authentication → Sign In / Providers**. To allow an admin to sign in with a phone number, also enable the **Phone** provider and configure an SMS provider; the phone Auth account must already exist and be verified in Supabase.
-4. Under **Authentication → URL Configuration**, add these allowed redirect URLs:
+4. Under **Authentication → URL Configuration**, set **Site URL** to the live site root, `https://gkb-company-ltd.netlify.app`. This is Supabase's fallback redirect, so do not leave it set to localhost for production.
+5. Add these allowed redirect URLs:
    - `http://localhost:5173/**`
    - `http://127.0.0.1:5173/**`
    - `https://gkb-company-ltd.netlify.app/**`
-5. Restart the local Vite server after editing `.env`. Sign-up confirmation links return to the same site (localhost or Netlify) where the account was created.
+6. Restart the local Vite server after editing `.env`. Signup and resend-confirmation requests set their redirect to the current site origin: local signups return to localhost, while signups made on the deployed site return to Netlify. Supabase accepts that redirect only when it matches the allowlist above; otherwise, it falls back to the configured Site URL.
 
 The `.env` file is ignored by Git. Configure `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` separately in Netlify's site environment variables to enable authentication on the deployed site.
 
