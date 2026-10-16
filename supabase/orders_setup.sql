@@ -35,6 +35,93 @@ $$;
 revoke all on function public.is_gkb_admin() from public, anon;
 grant execute on function public.is_gkb_admin() to authenticated;
 
+create table if not exists public.gkb_user_devices (
+  user_id uuid not null references auth.users(id) on delete cascade,
+  device_key text not null,
+  device_name text not null,
+  status text not null,
+  last_alert text not null default '',
+  project text,
+  relay_channels smallint check (relay_channels in (4, 6, 8)),
+  created_at timestamptz not null default now(),
+  primary key (user_id, device_key)
+);
+
+alter table public.gkb_user_devices enable row level security;
+revoke all on table public.gkb_user_devices from public, anon, authenticated;
+grant select, insert, delete on table public.gkb_user_devices to authenticated;
+grant update (user_id, device_key, device_name, status, last_alert, project, relay_channels)
+  on table public.gkb_user_devices to authenticated;
+
+drop policy if exists gkb_user_devices_read_owner_or_admin on public.gkb_user_devices;
+create policy gkb_user_devices_read_owner_or_admin
+  on public.gkb_user_devices
+  for select
+  to authenticated
+  using (user_id = (select auth.uid()) or (select public.is_gkb_admin()));
+
+drop policy if exists gkb_user_devices_insert_owner on public.gkb_user_devices;
+create policy gkb_user_devices_insert_owner
+  on public.gkb_user_devices
+  for insert
+  to authenticated
+  with check (user_id = (select auth.uid()));
+
+drop policy if exists gkb_user_devices_update_owner on public.gkb_user_devices;
+create policy gkb_user_devices_update_owner
+  on public.gkb_user_devices
+  for update
+  to authenticated
+  using (user_id = (select auth.uid()))
+  with check (user_id = (select auth.uid()));
+
+drop policy if exists gkb_user_devices_delete_owner on public.gkb_user_devices;
+create policy gkb_user_devices_delete_owner
+  on public.gkb_user_devices
+  for delete
+  to authenticated
+  using (user_id = (select auth.uid()));
+
+create table if not exists public.gkb_complaints (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  client_email text not null,
+  complaint text not null check (length(btrim(complaint)) between 1 and 5000),
+  solved boolean not null default false,
+  created_at timestamptz not null default now()
+);
+
+alter table public.gkb_complaints enable row level security;
+revoke all on table public.gkb_complaints from public, anon, authenticated;
+grant select, insert on table public.gkb_complaints to authenticated;
+grant update (solved) on table public.gkb_complaints to authenticated;
+
+drop policy if exists gkb_complaints_read_owner_or_admin on public.gkb_complaints;
+create policy gkb_complaints_read_owner_or_admin
+  on public.gkb_complaints
+  for select
+  to authenticated
+  using (user_id = (select auth.uid()) or (select public.is_gkb_admin()));
+
+drop policy if exists gkb_complaints_insert_owner on public.gkb_complaints;
+create policy gkb_complaints_insert_owner
+  on public.gkb_complaints
+  for insert
+  to authenticated
+  with check (
+    user_id = (select auth.uid())
+    and client_email = (select auth.jwt() ->> 'email')
+    and solved = false
+  );
+
+drop policy if exists gkb_complaints_update_admin on public.gkb_complaints;
+create policy gkb_complaints_update_admin
+  on public.gkb_complaints
+  for update
+  to authenticated
+  using ((select public.is_gkb_admin()))
+  with check ((select public.is_gkb_admin()));
+
 create table if not exists public.gkb_orders (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
@@ -122,3 +209,6 @@ $$;
 -- from auth.users
 -- where email = 'zumkel023@gmail.com'
 -- on conflict (user_id) do update set role = excluded.role;
+--
+-- For a verified phone-only admin Auth account, use its exact phone number instead:
+-- where phone = '+233XXXXXXXXX'

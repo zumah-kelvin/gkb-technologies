@@ -32,7 +32,7 @@ The portal uses Supabase Auth for client sign-up, sign-in, and email confirmatio
    VITE_SUPABASE_ANON_KEY=YOUR_PUBLIC_ANON_OR_PUBLISHABLE_KEY
    ```
 
-3. In Supabase, enable the **Email** provider under **Authentication → Sign In / Providers**.
+3. In Supabase, enable the **Email** provider under **Authentication → Sign In / Providers**. To allow an admin to sign in with a phone number, also enable the **Phone** provider and configure an SMS provider; the phone Auth account must already exist and be verified in Supabase.
 4. Under **Authentication → URL Configuration**, add these allowed redirect URLs:
    - `http://localhost:5173/**`
    - `http://127.0.0.1:5173/**`
@@ -41,6 +41,8 @@ The portal uses Supabase Auth for client sign-up, sign-in, and email confirmatio
 
 The `.env` file is ignored by Git. Configure `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` separately in Netlify's site environment variables to enable authentication on the deployed site.
 
+The portal restores a signed-in Supabase session after a page refresh. Admin access is assigned to a specific Supabase Auth user through the `gkb_user_roles` table; all other email-based accounts sign in as clients. Create the admin account with the password you choose, then promote that account with the SQL query at the end of `supabase/orders_setup.sql`. The example query uses `zumkel023@gmail.com`; change it to the admin account's email if needed. For a phone-only admin account, use its verified number to select its `auth.users.id` in that promotion query. Passwords are managed by Supabase Auth and must not be put in this repository or in frontend environment variables. Clients use email accounts so order and support records can be associated with their email address.
+
 ## Store orders
 
 Clients create an account or sign in through Supabase Auth, open **Retail Gadget Distribution**, and choose **Place an order / Track my orders**. They can submit an item, quantity, contact phone, and delivery or pickup details. **My Orders** shows the latest status and refreshes as the admin updates it. Admins open **Review Orders** to review incoming orders and set each order to **Processing**, **Delivered**, or **Picked up**.
@@ -48,20 +50,20 @@ Clients create an account or sign in through Supabase Auth, open **Retail Gadget
 To enable order syncing across client and admin devices:
 
 1. Complete [Supabase authentication setup](#configure-supabase-authentication).
-2. Run [`supabase/orders_setup.sql`](./supabase/orders_setup.sql) in the Supabase SQL Editor.
+2. Run [`supabase/orders_setup.sql`](./supabase/orders_setup.sql) in the Supabase SQL Editor. This also enables account-scoped device links and support tickets.
 3. Create the admin account through the portal, then run the commented promotion query at the end of the SQL file for that exact Auth account. Sign out and back in after promoting it. Other signed-in accounts are clients and can only see their own orders.
 4. Clients must confirm their email before signing in when email confirmation is enabled in Supabase.
 
-Order records use Supabase row-level security. Clients can insert and view only their own orders; only an admin account explicitly promoted in the database can review all orders or update their status.
+Order records use Supabase row-level security. Clients can insert and view only their own orders; only an admin account explicitly promoted in the database can review all orders or update their status. Support tickets and linked-device records are also stored in Supabase, scoped to the signed-in account, and available again after signing in from another browser. Admins can review submitted support tickets.
 
 ## Device portal
 
 Sign in to the portal and open **My Devices**:
 
 - Choose **Test device** to preview a device dashboard without linking it.
-- Enter a key below under **Link a purchased device** to add a device to the current browser profile.
+- Enter a key below under **Link a purchased device** to save a device link to the signed-in account.
 - Open a linked device from **Linked devices** to view its Service Portal dashboard.
-- Choose **Unlink** beside a linked device to remove that account's browser-profile link after confirmation. This does not unpair/reset physical hardware or release its Supabase owner assignment.
+- Choose **Unlink** beside a linked device to remove that account's saved link after confirmation. This does not unpair/reset physical hardware or release its Supabase owner assignment.
 
 ### Demo device keys
 

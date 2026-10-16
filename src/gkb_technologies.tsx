@@ -29,6 +29,28 @@ type Device = {
   relayChannels?: 4 | 6 | 8;
 };
 
+function isStoredDevice(value: unknown): value is Device {
+  if (typeof value !== 'object' || value === null) return false;
+  const device = value as Record<string, unknown>;
+  const projectValues: StudentProject[] = [
+    'fuel-tank-monitor',
+    'water-tank-monitor',
+    'prepaid-energy-meter',
+    'alcohol-breathalyzer',
+    'fan-regulator',
+    'light-control',
+    'relay-test'
+  ];
+  return typeof device.id === 'number' &&
+    typeof device.name === 'string' &&
+    typeof device.key === 'string' &&
+    typeof device.status === 'string' &&
+    typeof device.lastAlert === 'string' &&
+    (device.project === undefined || projectValues.includes(device.project as StudentProject)) &&
+    (device.legacyKeys === undefined || (Array.isArray(device.legacyKeys) && device.legacyKeys.every(key => typeof key === 'string'))) &&
+    (device.relayChannels === undefined || device.relayChannels === 4 || device.relayChannels === 6 || device.relayChannels === 8);
+}
+
 const defaultDevices: Device[] = [
   { id: 1, name: 'Smart Home Security System v1', key: 'GKB-SEC-9988', status: 'Online', lastAlert: 'Intrusion detected at Living Room (14:22 PM)' },
   { id: 2, name: 'Smart Water Tank Monitor', key: 'GKB-SWP-0001', legacyKeys: ['GKB-WTR-4412'], status: 'Online', lastAlert: 'Water level stable at 68%', project: 'water-tank-monitor' },
@@ -43,7 +65,8 @@ const defaultDevices: Device[] = [
 ];
 
 type Complaint = {
-  id: number;
+  id: string;
+  clientId: string;
   clientEmail: string;
   text: string;
   solved: boolean;
@@ -2115,12 +2138,10 @@ export default function GKBSite() {
   const [newDevKey, setNewDevKey] = useState('');
 
   // Complaints System
-  const [complaints, setComplaints] = useState<Complaint[]>([
-    deviceComplaintSample()
-  ]);
-  function deviceComplaintSample(): Complaint {
-    return { id: 1, clientEmail: 'student.client@gmail.com', text: 'Water tank sensor reading fluctuates when pump starts.', solved: false, date: '2026-06-01' };
-  }
+  const [complaints, setComplaints] = useState<Complaint[]>([]);
+  const [complaintsLoading, setComplaintsLoading] = useState(false);
+  const [complaintError, setComplaintError] = useState('');
+  const [complaintBusy, setComplaintBusy] = useState(false);
   const [newComplaintText, setNewComplaintText] = useState('');
 
   const activateUser = useCallback((account: UserType) => {
@@ -2128,32 +2149,21 @@ export default function GKBSite() {
     setActiveTab(selectedService ? 'service-portal' : 'devices');
     setSelectedDevice(null);
     setTestDevice(null);
-    try {
-      const savedLinks = window.localStorage.getItem(`gkb-linked-devices:${account.email.trim().toLowerCase()}`);
-      const accountDevices = savedLinks ? JSON.parse(savedLinks) as Device[] : [];
-      setLinkedDevices(accountDevices.map(linkedDevice =>
-        devices.find(device =>
-          device.key.toUpperCase() === linkedDevice.key.toUpperCase() ||
-          device.legacyKeys?.some(key => key.toUpperCase() === linkedDevice.key.toUpperCase())
-        ) ?? linkedDevice
-      ));
-    } catch (error) {
-      console.error('Unable to load this account’s linked devices from browser storage.', error);
-      setLinkedDevices([]);
-      setLinkMessage('Saved devices could not be loaded from this browser.');
-      setLinkMessageIsError(true);
-    }
-  }, [devices, selectedService]);
+  }, [selectedService]);
 
   const applyPortalSession = useCallback(async (session: Session | null) => {
     setPortalAuthError('');
-    if (!session?.user.email) {
+    if (!session?.user.email && !session?.user.phone) {
       setUser(null);
       setLinkedDevices([]);
       return;
     }
 
-    const account: UserType = { id: session.user.id, role: 'client', email: session.user.email };
+    const account: UserType = {
+      id: session.user.id,
+      role: 'client',
+      email: session.user.email ?? session.user.phone ?? ''
+    };
     if (!relaySupabase) {
       activateUser(account);
       return;
@@ -2166,11 +2176,19 @@ export default function GKBSite() {
       .maybeSingle();
     if (error) {
       console.error('Unable to load the signed-in portal user role.', error);
-      activateUser(account);
+      setUser(null);
+      setLinkedDevices([]);
       setPortalAuthError(`Account access could not be verified: ${error.message}`);
       return;
     }
-    activateUser({ ...account, role: data?.role === 'admin' ? 'admin' : 'client' });
+    const role = data?.role === 'admin' ? 'admin' : 'client';
+    if (!session.user.email && role !== 'admin') {
+      setUser(null);
+      setLinkedDevices([]);
+      setPortalAuthError('Client accounts need an email address for orders and support tickets. Sign in with an email-based account.');
+      return;
+    }
+    activateUser({ ...account, role });
   }, [activateUser]);
 
   useEffect(() => {
@@ -2218,6 +2236,134 @@ export default function GKBSite() {
   }, [applyPortalSession]);
 
   useEffect(() => {
+    if (!user || !relaySupabase) {
+      setLinkedDevices([]);
+      return;
+    }
+
+    let disposed = false;
+    const loadLinkedDevices = async () => {
+      const { data, error } = await relaySupabase
+        .from('gkb_user_devices')
+        .select('device_key, device_name, status, last_alert, project, relay_channels')
+        .eq('user_id', user.id)
+        .order('device_name');
+      if (disposed) return;
+      if (error) {
+        console.error('Unable to load this account’s linked devices from Supabase.', error);
+        setLinkedDevices([]);
+        setLinkMessage(`Saved devices could not be loaded: ${error.message}`);
+        setLinkMessageIsError(true);
+        return;
+      }
+      let savedDeviceRows = data ?? [];
+      const legacyLinksKey = `gkb-linked-devices:${user.email.trim().toLowerCase()}`;
+      const legacyLinks = window.localStorage.getItem(legacyLinksKey);
+      if (legacyLinks) {
+        const parsed: unknown = JSON.parse(legacyLinks);
+        if (!Array.isArray(parsed) || !parsed.every(isStoredDevice)) {
+          throw new Error('Saved device links in this browser are invalid and could not be migrated.');
+        }
+        const { error: migrationError } = await relaySupabase.from('gkb_user_devices').upsert(
+          parsed.map(device => ({
+            user_id: user.id,
+            device_key: device.key,
+            device_name: device.name,
+            status: device.status,
+            last_alert: device.lastAlert,
+            project: device.project ?? null,
+            relay_channels: device.relayChannels ?? null
+          })),
+          { onConflict: 'user_id,device_key' }
+        );
+        if (migrationError) throw migrationError;
+        window.localStorage.removeItem(legacyLinksKey);
+        const { data: migratedRows, error: reloadError } = await relaySupabase
+          .from('gkb_user_devices')
+          .select('device_key, device_name, status, last_alert, project, relay_channels')
+          .eq('user_id', user.id)
+          .order('device_name');
+        if (reloadError) throw reloadError;
+        savedDeviceRows = migratedRows ?? [];
+      }
+      setLinkedDevices(savedDeviceRows.map(savedDevice => {
+        const catalogueDevice = devices.find(device =>
+          device.key.toUpperCase() === savedDevice.device_key.toUpperCase() ||
+          device.legacyKeys?.some(key => key.toUpperCase() === savedDevice.device_key.toUpperCase())
+        );
+        return catalogueDevice ?? {
+          id: 0,
+          key: savedDevice.device_key,
+          name: savedDevice.device_name,
+          status: savedDevice.status,
+          lastAlert: savedDevice.last_alert,
+          ...(savedDevice.project ? { project: savedDevice.project as StudentProject } : {}),
+          ...(savedDevice.relay_channels === 4 || savedDevice.relay_channels === 6 || savedDevice.relay_channels === 8
+            ? { relayChannels: savedDevice.relay_channels }
+            : {})
+        };
+      }));
+    };
+
+    void loadLinkedDevices().catch(error => {
+      if (!disposed) {
+        console.error('Unable to load this account’s linked devices from Supabase.', error);
+        setLinkMessage(error instanceof Error ? error.message : 'Saved devices could not be loaded.');
+        setLinkMessageIsError(true);
+      }
+    });
+    return () => {
+      disposed = true;
+    };
+  }, [user, devices]);
+
+  useEffect(() => {
+    if (!user || !relaySupabase) {
+      setComplaints([]);
+      setComplaintsLoading(false);
+      return;
+    }
+
+    let disposed = false;
+    const loadComplaints = async () => {
+      setComplaintsLoading(true);
+      setComplaintError('');
+      let query = relaySupabase
+        .from('gkb_complaints')
+        .select('id, user_id, client_email, complaint, solved, created_at')
+        .order('created_at', { ascending: false });
+      if (user.role !== 'admin') query = query.eq('user_id', user.id);
+      const { data, error } = await query;
+      if (disposed) return;
+      if (error) {
+        console.error('Unable to load support tickets from Supabase.', error);
+        setComplaintError(`Support tickets could not be loaded: ${error.message}`);
+      } else {
+        setComplaints((data ?? []).map(item => ({
+          id: item.id,
+          clientId: item.user_id,
+          clientEmail: item.client_email,
+          text: item.complaint,
+          solved: item.solved,
+          date: new Date(item.created_at).toLocaleDateString()
+        })));
+      }
+      setComplaintsLoading(false);
+    };
+
+    void loadComplaints().catch(error => {
+      if (!disposed) {
+        console.error('Unable to load support tickets from Supabase.', error);
+        setComplaintError(error instanceof Error ? error.message : 'Support tickets could not be loaded.');
+        setComplaintsLoading(false);
+      }
+    });
+    return () => {
+      disposed = true;
+    };
+  }, [user]);
+
+  useEffect(() => {
     window.localStorage.setItem('gkb-theme', isLightMode ? 'light' : 'dark');
   }, [isLightMode]);
 
@@ -2248,10 +2394,11 @@ export default function GKBSite() {
           return;
         }
       } else {
-        const { error } = await relaySupabase.auth.signInWithPassword({
-          email: loginEmail.trim(),
-          password: loginPassword
-        });
+        const identifier = loginEmail.trim();
+        const credentials = identifier.includes('@')
+          ? { email: identifier, password: loginPassword }
+          : { phone: identifier, password: loginPassword };
+        const { error } = await relaySupabase.auth.signInWithPassword(credentials);
         if (error) throw error;
       }
       setLoginModalOpen(false);
@@ -2338,22 +2485,25 @@ export default function GKBSite() {
       device.legacyKeys?.some(key => key.toUpperCase() === pairingKey.toUpperCase())
     );
 
-    const saveLinkedDevice = (device: Device, message: string) => {
+    const saveLinkedDevice = async (device: Device, message: string) => {
+      if (!user || !relaySupabase) {
+        throw new Error('Sign in to a Supabase account before saving a linked device.');
+      }
+      const { error } = await relaySupabase.from('gkb_user_devices').upsert({
+        user_id: user.id,
+        device_key: device.key,
+        device_name: device.name,
+        status: device.status,
+        last_alert: device.lastAlert,
+        project: device.project ?? null,
+        relay_channels: device.relayChannels ?? null
+      }, { onConflict: 'user_id,device_key' });
+      if (error) throw error;
       const nextLinkedDevices = linkedDevices.some(linkedDevice => linkedDevice.key === device.key)
         ? linkedDevices
         : [...linkedDevices, device];
       setLinkedDevices(nextLinkedDevices);
-      try {
-        window.localStorage.setItem(
-          `gkb-linked-devices:${user?.email.trim().toLowerCase()}`,
-          JSON.stringify(nextLinkedDevices)
-        );
-        setLinkMessage(message);
-      } catch (error) {
-        console.error('Unable to save linked device to browser storage.', error);
-        setLinkMessage(`${message} It is linked for this session but could not be saved to this browser.`);
-        setLinkMessageIsError(true);
-      }
+      setLinkMessage(message);
     };
 
     try {
@@ -2362,7 +2512,7 @@ export default function GKBSite() {
           setLinkMessage('Device is already linked to your account.');
           setLinkMessageIsError(true);
         } else {
-          saveLinkedDevice(foundDemoDevice, `"${foundDemoDevice.name}" demo preview linked. Use its one-time ESP32 pairing key to pair physical hardware.`);
+          await saveLinkedDevice(foundDemoDevice, `"${foundDemoDevice.name}" demo preview linked. Use its one-time ESP32 pairing key to pair physical hardware.`);
         }
         return;
       }
@@ -2387,7 +2537,7 @@ export default function GKBSite() {
       if (!relayDevice) {
         throw new Error('The Relay Test device is missing from this site’s device catalogue.');
       }
-      saveLinkedDevice(
+      await saveLinkedDevice(
         relayDevice,
         'ESP32 relay paired to your Supabase account. The one-time pairing key has been consumed; open Relay Test from Linked devices.'
       );
@@ -2400,7 +2550,7 @@ export default function GKBSite() {
     }
   };
 
-  const handleUnlinkDevice = (device: Device) => {
+  const handleUnlinkDevice = async (device: Device) => {
     if (!user) {
       setLinkMessage('Sign in before removing a device from this account.');
       setLinkMessageIsError(true);
@@ -2410,18 +2560,21 @@ export default function GKBSite() {
       return;
     }
 
-    const nextLinkedDevices = linkedDevices.filter(linkedDevice => linkedDevice.key !== device.key);
     try {
-      window.localStorage.setItem(
-        `gkb-linked-devices:${user.email.trim().toLowerCase()}`,
-        JSON.stringify(nextLinkedDevices)
-      );
+      if (!relaySupabase) throw new Error(relaySupabaseConfigError);
+      const { error } = await relaySupabase
+        .from('gkb_user_devices')
+        .delete()
+        .eq('user_id', user.id)
+        .eq('device_key', device.key);
+      if (error) throw error;
+      const nextLinkedDevices = linkedDevices.filter(linkedDevice => linkedDevice.key !== device.key);
       setLinkedDevices(nextLinkedDevices);
       setLinkMessage(`"${device.name}" was unlinked from this account. The physical device pairing was not changed.`);
       setLinkMessageIsError(false);
     } catch (error) {
-      console.error('Unable to update this account’s linked devices in browser storage.', error);
-      setLinkMessage(`Could not unlink "${device.name}" because the browser could not save the change.`);
+      console.error('Unable to unlink this account’s device in Supabase.', error);
+      setLinkMessage(`Could not unlink "${device.name}": ${error instanceof Error ? error.message : 'Unexpected database error.'}`);
       setLinkMessageIsError(true);
     }
   };
@@ -2450,23 +2603,61 @@ export default function GKBSite() {
   };
 
   // Submit Complaint
-  const handleSubmitComplaint = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmitComplaint = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!newComplaintText.trim() || !user) return;
-    const item: Complaint = {
-      id: Date.now(),
-      clientEmail: user.email,
-      text: newComplaintText,
-      solved: false,
-      date: new Date().toLocaleDateString()
-    };
-    setComplaints([item, ...complaints]);
-    setNewComplaintText('');
+    if (!relaySupabase) {
+      setComplaintError(relaySupabaseConfigError);
+      return;
+    }
+    setComplaintBusy(true);
+    setComplaintError('');
+    try {
+      const { data, error } = await relaySupabase
+        .from('gkb_complaints')
+        .insert({
+          user_id: user.id,
+          client_email: user.email,
+          complaint: newComplaintText.trim()
+        })
+        .select('id, user_id, client_email, complaint, solved, created_at')
+        .single();
+      if (error) throw error;
+      setComplaints(current => [{
+        id: data.id,
+        clientId: data.user_id,
+        clientEmail: data.client_email,
+        text: data.complaint,
+        solved: data.solved,
+        date: new Date(data.created_at).toLocaleDateString()
+      }, ...current]);
+      setNewComplaintText('');
+    } catch (error) {
+      console.error('Unable to submit support ticket to Supabase.', error);
+      setComplaintError(`Your ticket could not be saved: ${error instanceof Error ? error.message : 'Unexpected database error.'}`);
+    } finally {
+      setComplaintBusy(false);
+    }
   };
 
   // Toggle Complaint Solved Status (Admin only)
-  const toggleComplaintSolved = (id: number) => {
-    setComplaints(complaints.map(c => c.id === id ? { ...c, solved: !c.solved } : c));
+  const toggleComplaintSolved = async (complaint: Complaint) => {
+    if (!relaySupabase || user?.role !== 'admin') return;
+    const nextSolved = !complaint.solved;
+    setComplaintError('');
+    try {
+      const { error } = await relaySupabase
+        .from('gkb_complaints')
+        .update({ solved: nextSolved })
+        .eq('id', complaint.id);
+      if (error) throw error;
+      setComplaints(current => current.map(item =>
+        item.id === complaint.id ? { ...item, solved: nextSolved } : item
+      ));
+    } catch (error) {
+      console.error('Unable to update support ticket in Supabase.', error);
+      setComplaintError(`Ticket status could not be updated: ${error instanceof Error ? error.message : 'Unexpected database error.'}`);
+    }
   };
 
   const navigationItems = [
@@ -2976,6 +3167,15 @@ export default function GKBSite() {
             <p className="text-xs text-slate-400">Review tickets submitted by clients, fix issues, and check them off as resolved.</p>
             
             <div className="space-y-4">
+              {complaintError && (
+                <p role="alert" className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+                  {complaintError}
+                </p>
+              )}
+              {complaintsLoading && <p role="status" className="text-sm text-slate-400">Loading saved tickets…</p>}
+              {!complaintsLoading && !complaintError && complaints.length === 0 && (
+                <p className="text-sm text-slate-500">No client tickets have been submitted yet.</p>
+              )}
               {complaints.map(c => (
                 <div key={c.id} className={`p-5 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-all ${c.solved ? 'bg-slate-950/40 border-slate-900 opacity-70' : 'bg-slate-900 border-cyan-500/30'}`}>
                   <div className="space-y-1">
@@ -2986,7 +3186,8 @@ export default function GKBSite() {
                     <p className="text-sm text-slate-200">{c.text}</p>
                   </div>
                   <button 
-                    onClick={() => toggleComplaintSolved(c.id)}
+                    type="button"
+                    onClick={() => void toggleComplaintSolved(c)}
                     className={`px-4 py-2 rounded-lg text-xs font-bold flex items-center space-x-2 transition-all ${c.solved ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30' : 'bg-slate-800 text-slate-300 hover:bg-cyan-500 hover:text-black'}`}
                   >
                     {c.solved ? <CheckSquare className="w-4 h-4 text-emerald-400" /> : <Square className="w-4 h-4" />}
@@ -3010,6 +3211,11 @@ export default function GKBSite() {
                 Your complaint goes straight to CEO Zumah Kelvin and the GKB admin panel for immediate resolution.
               </p>
               <form onSubmit={handleSubmitComplaint} className="space-y-4">
+                {complaintError && (
+                  <p role="alert" className="rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-200">
+                    {complaintError}
+                  </p>
+                )}
                 <textarea 
                   rows={4}
                   placeholder="Describe your issue or custom project inquiry here..."
@@ -3020,9 +3226,10 @@ export default function GKBSite() {
                 ></textarea>
                 <button 
                   type="submit"
-                  className="w-full py-3 bg-gradient-to-r from-cyan-500 to-purple-600 text-black font-bold rounded-xl text-sm hover:opacity-90 transition-opacity"
+                  disabled={complaintBusy}
+                  className="w-full py-3 bg-gradient-to-r from-cyan-500 to-purple-600 text-black font-bold rounded-xl text-sm hover:opacity-90 transition-opacity disabled:cursor-wait disabled:opacity-60"
                 >
-                  Submit Ticket to Admin
+                  {complaintBusy ? 'Saving ticket…' : 'Submit Ticket to Admin'}
                 </button>
               </form>
             </div>
@@ -3030,10 +3237,12 @@ export default function GKBSite() {
             {/* My Submitted Complaints History */}
             <div className="space-y-4">
               <h4 className="text-sm font-bold text-slate-300 uppercase tracking-wider">Your Submitted Tickets</h4>
-              {complaints.filter(c => c.clientEmail === user?.email).length === 0 ? (
+              {complaintsLoading ? (
+                <p role="status" className="text-xs text-slate-500">Loading your saved tickets…</p>
+              ) : complaints.filter(c => c.clientId === user.id).length === 0 ? (
                 <p className="text-xs text-slate-500">No complaints submitted yet.</p>
               ) : (
-                complaints.filter(c => c.clientEmail === user?.email).map(c => (
+                complaints.filter(c => c.clientId === user.id).map(c => (
                   <div key={c.id} className="p-4 rounded-xl bg-slate-900/60 border border-slate-800 flex items-center justify-between">
                     <div>
                       <p className="text-xs text-slate-200">{c.text}</p>
@@ -3161,11 +3370,13 @@ export default function GKBSite() {
 
             <form onSubmit={handleLoginSubmit} className="space-y-4">
               <div>
-                <label className="text-xs text-slate-400 mb-1 block">Email Address</label>
+                <label className="text-xs text-slate-400 mb-1 block">
+                  {creatingAccount ? 'Email Address' : 'Email or phone number'}
+                </label>
                 <input 
-                  type="email" 
-                  autoComplete="email"
-                  placeholder="you@example.com"
+                  type={creatingAccount ? 'email' : 'text'}
+                  autoComplete={creatingAccount ? 'email' : 'username'}
+                  placeholder={creatingAccount ? 'you@example.com' : 'you@example.com or +233…'}
                   value={loginEmail}
                   onChange={(e) => setLoginEmail(e.target.value)}
                   className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-lg text-sm text-white focus:border-cyan-400 focus:outline-none"
