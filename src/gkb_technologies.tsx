@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { relayControlEnabled, relayPairingEnabled, relaySupabase, relaySupabaseConfigError } from './supabase';
 import OrdersPortal from './OrdersPortal';
@@ -69,6 +69,61 @@ function isStoredDevice(value: unknown): value is Device {
     (device.project === undefined || projectValues.includes(device.project as StudentProject)) &&
     (device.legacyKeys === undefined || (Array.isArray(device.legacyKeys) && device.legacyKeys.every(key => typeof key === 'string'))) &&
     (device.relayChannels === undefined || device.relayChannels === 4 || device.relayChannels === 6 || device.relayChannels === 8);
+}
+
+function InventoryHighlights({ text }: { text: string }) {
+  const measurementRef = useRef<HTMLParagraphElement>(null);
+  const [expanded, setExpanded] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
+  const [fullHeight, setFullHeight] = useState(0);
+  const [collapsedHeight, setCollapsedHeight] = useState(0);
+
+  useEffect(() => {
+    const measurement = measurementRef.current;
+    if (!measurement) return;
+
+    const updateMeasurements = () => {
+      const lineHeight = Number.parseFloat(window.getComputedStyle(measurement).lineHeight);
+      const nextCollapsedHeight = (Number.isFinite(lineHeight) ? lineHeight : 24) * 3;
+      const nextFullHeight = measurement.scrollHeight;
+      setCollapsedHeight(nextCollapsedHeight);
+      setFullHeight(nextFullHeight);
+      setHasMore(nextFullHeight > nextCollapsedHeight + 1);
+    };
+
+    updateMeasurements();
+    const observer = new ResizeObserver(updateMeasurements);
+    observer.observe(measurement);
+    return () => observer.disconnect();
+  }, [text]);
+
+  return (
+    <div className="relative">
+      <p
+        aria-hidden="true"
+        ref={measurementRef}
+        className="pointer-events-none absolute inset-x-0 top-0 -z-10 whitespace-pre-line text-sm leading-relaxed opacity-0"
+      >
+        {text}
+      </p>
+      <p
+        className="overflow-hidden whitespace-pre-line text-sm leading-relaxed text-slate-400 transition-[max-height] duration-300 ease-in-out"
+        style={{ maxHeight: `${expanded ? fullHeight : collapsedHeight}px` }}
+      >
+        {text}
+      </p>
+      {hasMore && (
+        <button
+          type="button"
+          aria-expanded={expanded}
+          onClick={() => setExpanded(value => !value)}
+          className="mt-2 text-xs font-semibold text-cyan-300 transition-colors hover:text-cyan-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
+        >
+          {expanded ? 'See Less' : 'See More'}
+        </button>
+      )}
+    </div>
+  );
 }
 
 const defaultDevices: Device[] = [
@@ -3491,7 +3546,7 @@ export default function GKBSite() {
                               <span className="rounded-md border border-slate-700 bg-slate-950 px-2.5 py-1.5 text-xs text-slate-300">RAM · {item.ram}</span>
                               <span className="rounded-md border border-slate-700 bg-slate-950 px-2.5 py-1.5 text-xs text-slate-300">Storage · {item.storage}</span>
                             </div>
-                            <p className="whitespace-pre-line text-sm leading-relaxed text-slate-400">{item.highlights}</p>
+                            <InventoryHighlights text={item.highlights} />
                             {user.role === 'admin' ? (
                               <button
                                 type="button"
