@@ -16,6 +16,10 @@ type UserType = {
   id: string;
   role: 'admin' | 'client';
   email: string;
+  firstName: string;
+  lastName: string;
+  phone: string;
+  location: string;
 };
 
 type Device = {
@@ -2107,6 +2111,10 @@ export default function GKBSite() {
   const [loginModalOpen, setLoginModalOpen] = useState(false);
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
+  const [signupFirstName, setSignupFirstName] = useState('');
+  const [signupLastName, setSignupLastName] = useState('');
+  const [signupPhone, setSignupPhone] = useState('');
+  const [signupLocation, setSignupLocation] = useState('');
   const [loginError, setLoginError] = useState('');
   const [loginMessage, setLoginMessage] = useState('');
   const [loginBusy, setLoginBusy] = useState(false);
@@ -2146,7 +2154,7 @@ export default function GKBSite() {
 
   const activateUser = useCallback((account: UserType) => {
     setUser(account);
-    setActiveTab(selectedService ? 'service-portal' : 'devices');
+    setActiveTab(account.role === 'admin' ? 'orders' : selectedService ? 'service-portal' : 'devices');
     setSelectedDevice(null);
     setTestDevice(null);
   }, [selectedService]);
@@ -2159,10 +2167,15 @@ export default function GKBSite() {
       return;
     }
 
+    const metadata = session.user.user_metadata;
     const account: UserType = {
       id: session.user.id,
       role: 'client',
-      email: session.user.email ?? session.user.phone ?? ''
+      email: session.user.email ?? session.user.phone ?? '',
+      firstName: typeof metadata.first_name === 'string' ? metadata.first_name : '',
+      lastName: typeof metadata.last_name === 'string' ? metadata.last_name : '',
+      phone: typeof metadata.phone === 'string' ? metadata.phone : '',
+      location: typeof metadata.location === 'string' ? metadata.location : ''
     };
     if (!relaySupabase) {
       activateUser(account);
@@ -2383,7 +2396,13 @@ export default function GKBSite() {
           email: loginEmail.trim(),
           password: loginPassword,
           options: {
-            emailRedirectTo: window.location.origin
+            emailRedirectTo: window.location.origin,
+            data: {
+              first_name: signupFirstName.trim(),
+              last_name: signupLastName.trim(),
+              phone: signupPhone.trim(),
+              location: signupLocation.trim()
+            }
           }
         });
         if (error) throw error;
@@ -2471,6 +2490,10 @@ export default function GKBSite() {
   const clearInputs = () => {
     setLoginEmail('');
     setLoginPassword('');
+    setSignupFirstName('');
+    setSignupLastName('');
+    setSignupPhone('');
+    setSignupLocation('');
   };
 
   // Device Linking action for Client
@@ -3345,16 +3368,41 @@ export default function GKBSite() {
       {/* LOGIN MODAL OVERLAY */}
       {loginModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-fadeIn">
-          <div className="w-full max-w-md p-8 rounded-2xl bg-slate-900 border border-cyan-500/40 shadow-[0_0_50px_rgba(6,182,212,0.2)] relative space-y-6">
+          <div className="relative max-h-[90vh] w-full max-w-lg space-y-6 overflow-y-auto rounded-2xl border border-cyan-500/40 bg-slate-900 p-6 shadow-[0_0_50px_rgba(6,182,212,0.2)] sm:p-8">
             <div className="text-center space-y-1">
-              <h3 className="text-xl font-bold text-white">
-                {selectedService === 'student-projects'
-                  ? 'Sign in for Student Project Solutions'
-                  : selectedService === 'retail-gadgets'
-                    ? 'Sign in for Retail Gadget Distribution'
-                    : 'GKB Portal Authentication'}
-              </h3>
-              <p className="text-xs text-slate-400">Sign in to view your service portal, devices, and demo checkout.</p>
+              <h3 className="text-xl font-bold text-white">GKB Account</h3>
+              <p className="text-xs text-slate-400">Sign in or create an account to access your GKB services and orders.</p>
+            </div>
+
+            <div role="tablist" aria-label="Account access" className="grid grid-cols-2 rounded-lg border border-slate-800 bg-slate-950 p-1">
+              <button
+                type="button"
+                role="tab"
+                aria-selected={!creatingAccount}
+                disabled={loginBusy}
+                onClick={() => {
+                  setCreatingAccount(false);
+                  setLoginError('');
+                  setLoginMessage('');
+                }}
+                className={`rounded-md px-4 py-2 text-sm font-semibold transition-colors ${!creatingAccount ? 'bg-cyan-500 text-slate-950' : 'text-slate-400 hover:text-white'}`}
+              >
+                Sign In
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={creatingAccount}
+                disabled={loginBusy}
+                onClick={() => {
+                  setCreatingAccount(true);
+                  setLoginError('');
+                  setLoginMessage('');
+                }}
+                className={`rounded-md px-4 py-2 text-sm font-semibold transition-colors ${creatingAccount ? 'bg-cyan-500 text-slate-950' : 'text-slate-400 hover:text-white'}`}
+              >
+                Sign Up
+              </button>
             </div>
 
             {loginError && (
@@ -3369,10 +3417,64 @@ export default function GKBSite() {
             )}
 
             <form onSubmit={handleLoginSubmit} className="space-y-4">
+              {creatingAccount && (
+                <>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <label className="block text-xs text-slate-400">
+                      First name
+                      <input
+                        type="text"
+                        autoComplete="given-name"
+                        maxLength={80}
+                        value={signupFirstName}
+                        onChange={event => setSignupFirstName(event.target.value)}
+                        className="mt-1 w-full rounded-lg border border-slate-800 bg-slate-950 px-4 py-2.5 text-sm text-white focus:border-cyan-400 focus:outline-none"
+                        required
+                      />
+                    </label>
+                    <label className="block text-xs text-slate-400">
+                      Second name (last name)
+                      <input
+                        type="text"
+                        autoComplete="family-name"
+                        maxLength={80}
+                        value={signupLastName}
+                        onChange={event => setSignupLastName(event.target.value)}
+                        className="mt-1 w-full rounded-lg border border-slate-800 bg-slate-950 px-4 py-2.5 text-sm text-white focus:border-cyan-400 focus:outline-none"
+                        required
+                      />
+                    </label>
+                  </div>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <label className="block text-xs text-slate-400">
+                      Phone number
+                      <input
+                        type="tel"
+                        autoComplete="tel"
+                        maxLength={30}
+                        value={signupPhone}
+                        onChange={event => setSignupPhone(event.target.value)}
+                        className="mt-1 w-full rounded-lg border border-slate-800 bg-slate-950 px-4 py-2.5 text-sm text-white focus:border-cyan-400 focus:outline-none"
+                        required
+                      />
+                    </label>
+                    <label className="block text-xs text-slate-400">
+                      Location (address/city)
+                      <input
+                        type="text"
+                        autoComplete="address-level2"
+                        maxLength={160}
+                        value={signupLocation}
+                        onChange={event => setSignupLocation(event.target.value)}
+                        className="mt-1 w-full rounded-lg border border-slate-800 bg-slate-950 px-4 py-2.5 text-sm text-white focus:border-cyan-400 focus:outline-none"
+                        required
+                      />
+                    </label>
+                  </div>
+                </>
+              )}
               <div>
-                <label className="text-xs text-slate-400 mb-1 block">
-                  {creatingAccount ? 'Email Address' : 'Email or phone number'}
-                </label>
+                <label className="text-xs text-slate-400 mb-1 block">{creatingAccount ? 'Email address' : 'Email or phone number'}</label>
                 <input 
                   type={creatingAccount ? 'email' : 'text'}
                   autoComplete={creatingAccount ? 'email' : 'username'}
@@ -3403,23 +3505,11 @@ export default function GKBSite() {
                 disabled={loginBusy}
                 className="w-full py-3 bg-gradient-to-r from-cyan-500 to-purple-600 text-black font-bold rounded-lg text-sm shadow-[0_0_15px_rgba(6,182,212,0.4)] hover:opacity-90 transition-opacity disabled:cursor-wait disabled:opacity-60"
               >
-                {loginBusy ? 'Working…' : creatingAccount ? 'Create account' : 'Sign In'}
+                {loginBusy ? 'Working…' : creatingAccount ? 'Create client account' : 'Sign In'}
               </button>
             </form>
 
             <div className="flex flex-wrap justify-center gap-x-4 gap-y-2 text-xs">
-              <button
-                type="button"
-                disabled={loginBusy}
-                onClick={() => {
-                  setCreatingAccount(value => !value);
-                  setLoginError('');
-                  setLoginMessage('');
-                }}
-                className="text-cyan-300 transition-colors hover:text-cyan-200 disabled:opacity-50"
-              >
-                {creatingAccount ? 'Already registered? Sign in' : 'Create a client account'}
-              </button>
               {loginMessage.includes('confirm your address') && (
                 <button
                   type="button"

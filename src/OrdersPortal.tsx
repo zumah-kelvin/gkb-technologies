@@ -24,6 +24,10 @@ type PortalUser = {
   id: string;
   email: string;
   role: 'admin' | 'client';
+  firstName?: string;
+  lastName?: string;
+  phone?: string;
+  location?: string;
 };
 
 const statusLabels: Record<OrderStatus, string> = {
@@ -62,10 +66,12 @@ export default function OrdersPortal({ user }: { user: PortalUser }) {
   const [updatingOrderId, setUpdatingOrderId] = useState('');
   const [productName, setProductName] = useState('');
   const [quantity, setQuantity] = useState('1');
-  const [customerName, setCustomerName] = useState('');
-  const [customerPhone, setCustomerPhone] = useState('');
+  const [customerName, setCustomerName] = useState(() =>
+    [user.firstName, user.lastName].filter(Boolean).join(' ')
+  );
+  const [customerPhone, setCustomerPhone] = useState(user.phone ?? '');
   const [fulfillmentMethod, setFulfillmentMethod] = useState<FulfillmentMethod>('delivery');
-  const [deliveryAddress, setDeliveryAddress] = useState('');
+  const [deliveryAddress, setDeliveryAddress] = useState(user.location ?? '');
 
   const loadOrders = useCallback(async (showLoading = false) => {
     if (!relaySupabase) {
@@ -189,6 +195,13 @@ export default function OrdersPortal({ user }: { user: PortalUser }) {
             ? 'Review incoming orders and update each customer as it moves through processing, delivery, or pickup.'
             : 'Place an order and check its latest status here. Updates from GKB will appear automatically.'}
         </p>
+        {!isAdmin && (
+          <p className="mt-3 text-xs text-slate-400">
+            Signed in as <span className="font-medium text-cyan-200">{[user.firstName, user.lastName].filter(Boolean).join(' ') || user.email}</span>
+            {user.phone ? ` · ${user.phone}` : ''}
+            {user.location ? ` · ${user.location}` : ''}
+          </p>
+        )}
       </header>
 
       {error && (
