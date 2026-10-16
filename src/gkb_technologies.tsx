@@ -33,6 +33,22 @@ type Device = {
   relayChannels?: 4 | 6 | 8;
 };
 
+type InventoryItem = {
+  id: string;
+  brand: string;
+  title: string;
+  highlights: string;
+  price: number;
+  ram: string;
+  storage: string;
+  image_path: string;
+  active: boolean;
+};
+
+const inventoryRamOptions = ['4GB', '8GB', '16GB', '32GB', '64GB'];
+const inventoryStorageOptions = ['128GB', '256GB', '512GB', '1TB', '2TB', '4TB'];
+const inventoryImageBucket = 'gkb-device-images';
+
 function isStoredDevice(value: unknown): value is Device {
   if (typeof value !== 'object' || value === null) return false;
   const device = value as Record<string, unknown>;
@@ -2151,6 +2167,18 @@ export default function GKBSite() {
   const [complaintError, setComplaintError] = useState('');
   const [complaintBusy, setComplaintBusy] = useState(false);
   const [newComplaintText, setNewComplaintText] = useState('');
+  const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
+  const [inventoryLoading, setInventoryLoading] = useState(false);
+  const [inventoryBusy, setInventoryBusy] = useState(false);
+  const [inventoryError, setInventoryError] = useState('');
+  const [inventoryMessage, setInventoryMessage] = useState('');
+  const [inventoryBrand, setInventoryBrand] = useState('');
+  const [inventoryTitle, setInventoryTitle] = useState('');
+  const [inventoryHighlights, setInventoryHighlights] = useState('');
+  const [inventoryPrice, setInventoryPrice] = useState('');
+  const [inventoryRam, setInventoryRam] = useState(inventoryRamOptions[1]);
+  const [inventoryStorage, setInventoryStorage] = useState(inventoryStorageOptions[2]);
+  const [inventoryImage, setInventoryImage] = useState<File | null>(null);
 
   const activateUser = useCallback((account: UserType) => {
     setUser(account);
@@ -2369,6 +2397,43 @@ export default function GKBSite() {
         console.error('Unable to load support tickets from Supabase.', error);
         setComplaintError(error instanceof Error ? error.message : 'Support tickets could not be loaded.');
         setComplaintsLoading(false);
+      }
+    });
+    return () => {
+      disposed = true;
+    };
+  }, [user]);
+
+  useEffect(() => {
+    if (!user || !relaySupabase) {
+      setInventoryItems([]);
+      setInventoryLoading(false);
+      return;
+    }
+
+    let disposed = false;
+    const loadInventory = async () => {
+      setInventoryLoading(true);
+      setInventoryError('');
+      const { data, error } = await relaySupabase
+        .from('gkb_inventory_items')
+        .select('id, brand, title, highlights, price, ram, storage, image_path, active')
+        .order('created_at', { ascending: false });
+      if (disposed) return;
+      if (error) {
+        console.error('Unable to load GKB retail inventory.', error);
+        setInventoryError(`Inventory could not be loaded: ${error.message}. Confirm the inventory setup in supabase/orders_setup.sql has been run.`);
+      } else {
+        setInventoryItems((data ?? []).map(item => ({ ...item, price: Number(item.price) })) as InventoryItem[]);
+      }
+      setInventoryLoading(false);
+    };
+
+    void loadInventory().catch(error => {
+      if (!disposed) {
+        console.error('Unable to load GKB retail inventory.', error);
+        setInventoryError(error instanceof Error ? error.message : 'Inventory could not be loaded.');
+        setInventoryLoading(false);
       }
     });
     return () => {
@@ -2625,6 +2690,121 @@ export default function GKBSite() {
     setNewDevKey('');
   };
 
+  const handleAddInventoryItem = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setInventoryError('');
+    setInventoryMessage('');
+    if (user?.role !== 'admin' || !relaySupabase) {
+      setInventoryError(relaySupabase ? 'Only an administrator can add inventory.' : relaySupabaseConfigError);
+      return;
+    }
+    if (!inventoryImage) {
+      setInventoryError('Choose a product image to upload.');
+      return;
+    }
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(inventoryImage.type)) {
+      setInventoryError('Choose a JPG, PNG, or WebP image.');
+      return;
+    }
+    if (inventoryImage.size > 5 * 1024 * 1024) {
+      setInventoryError('The image must be 5 MB or smaller.');
+      return;
+    }
+    const price = Number(inventoryPrice);
+    if (!Number.isFinite(price) || price <= 0) {
+      setInventoryError('Enter a price greater than zero.');
+      return;
+    }
+
+    setInventoryBusy(true);
+    let uploadedImagePath: string | null = null;
+    try {
+      const extension = inventoryImage.type === 'image/jpeg'
+        ? 'jpg'
+        : inventoryImage.type === 'image/png' ? 'png' : 'webp';
+      const imagePath = `${user.id}/${crypto.randomUUID()}.${extension}`;
+      const { error: uploadError } = await relaySupabase.storage
+        .from(inventoryImageBucket)
+        .upload(imagePath, inventoryImage, { contentType: inventoryImage.type, upsert: false });
+      if (uploadError) throw uploadError;
+      uploadedImagePath = imagePath;
+
+      const { data, error } = await relaySupabase
+        .from('gkb_inventory_items')
+        .insert({
+          brand: inventoryBrand.trim(),
+          title: inventoryTitle.trim(),
+          highlights: inventoryHighlights.trim(),
+          price,
+          ram: inventoryRam,
+          storage: inventoryStorage,
+          image_path: imagePath
+        })
+        .select('id, brand, title, highlights, price, ram, storage, image_path, active')
+        .single();
+      if (error) throw error;
+      setInventoryItems(current => [{ ...data, price: Number(data.price) } as InventoryItem, ...current]);
+      setInventoryBrand('');
+      setInventoryTitle('');
+      setInventoryHighlights('');
+      setInventoryPrice('');
+      setInventoryRam(inventoryRamOptions[1]);
+      setInventoryStorage(inventoryStorageOptions[2]);
+      setInventoryImage(null);
+      const fileInput = document.getElementById('inventory-device-image');
+      if (fileInput instanceof HTMLInputElement) fileInput.value = '';
+      setInventoryMessage('Device added to the retail service portal.');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unexpected inventory error.';
+      if (uploadedImagePath) {
+        try {
+          const { error: cleanupError } = await relaySupabase.storage
+            .from(inventoryImageBucket)
+            .remove([uploadedImagePath]);
+          if (cleanupError) {
+            console.error('Failed to clean up product image after inventory insert failed.', cleanupError);
+            setInventoryError(`Device could not be added: ${message}. The uploaded image could not be cleaned up: ${cleanupError.message}`);
+            return;
+          }
+        } catch (cleanupError) {
+          console.error('Failed to clean up product image after inventory insert failed.', cleanupError);
+          setInventoryError(`Device could not be added: ${message}. The uploaded image could not be cleaned up: ${cleanupError instanceof Error ? cleanupError.message : 'Unexpected storage error.'}`);
+          return;
+        }
+      }
+      console.error('Unable to add a GKB retail inventory item.', error);
+      setInventoryError(`Device could not be added: ${message}`);
+    } finally {
+      setInventoryBusy(false);
+    }
+  };
+
+  const handleToggleInventoryItem = async (item: InventoryItem) => {
+    if (user?.role !== 'admin' || !relaySupabase) return;
+    if (item.active && !window.confirm(`Archive "${item.title}" from the retail service portal? Existing orders will not be changed.`)) {
+      return;
+    }
+
+    setInventoryError('');
+    setInventoryMessage('');
+    try {
+      const { data, error } = await relaySupabase
+        .from('gkb_inventory_items')
+        .update({ active: !item.active, updated_at: new Date().toISOString() })
+        .eq('id', item.id)
+        .select('id, brand, title, highlights, price, ram, storage, image_path, active')
+        .single();
+      if (error) throw error;
+      setInventoryItems(current => current.map(currentItem =>
+        currentItem.id === item.id ? { ...data, price: Number(data.price) } as InventoryItem : currentItem
+      ));
+      setInventoryMessage(item.active ? 'Device archived. Existing orders are unchanged.' : 'Device restored to the retail service portal.');
+    } catch (error) {
+      console.error('Unable to update GKB retail inventory item.', error);
+      setInventoryError(`Device could not be ${item.active ? 'archived' : 'restored'}: ${error instanceof Error ? error.message : 'Unexpected inventory error.'}`);
+    }
+  };
+
   // Submit Complaint
   const handleSubmitComplaint = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -2699,8 +2879,8 @@ export default function GKBSite() {
     },
     {
       tab: 'service-portal',
-      label: 'Service Portal',
-      visible: Boolean(user && selectedService)
+      label: user?.role === 'admin' ? 'Inventory & Service' : 'Service Portal',
+      visible: Boolean(user && (selectedService || user.role === 'admin'))
     },
     {
       tab: 'admin-complaints',
@@ -2721,7 +2901,12 @@ export default function GKBSite() {
       <button
         key={item.tab}
         type="button"
-        onClick={() => setActiveTab(item.tab)}
+        onClick={() => {
+          if (item.tab === 'service-portal' && user?.role === 'admin' && !selectedService) {
+            setSelectedService('retail-gadgets');
+          }
+          setActiveTab(item.tab);
+        }}
         aria-current={activeTab === item.tab ? 'page' : undefined}
         className={`shrink-0 px-3 py-2 rounded-md text-sm font-medium transition-all duration-300 ${
           activeTab === item.tab
@@ -3107,7 +3292,7 @@ export default function GKBSite() {
 
         {/* ================= SERVICE PORTAL ================= */}
         {activeTab === 'service-portal' && user && selectedService && (
-          <div className={`mx-auto space-y-6 animate-fadeIn ${selectedService === 'student-projects' ? 'max-w-7xl' : 'max-w-4xl'}`}>
+          <div className={`mx-auto space-y-6 animate-fadeIn ${selectedService === 'student-projects' || selectedService === 'retail-gadgets' ? 'max-w-7xl' : 'max-w-4xl'}`}>
             <div className="rounded-2xl border border-cyan-500/30 bg-slate-900/70 p-6 sm:p-8">
               <p className="text-xs font-mono uppercase tracking-widest text-cyan-400">
                 Signed in as {user.email}
@@ -3151,19 +3336,187 @@ export default function GKBSite() {
                     : <GenericDeviceDashboard device={selectedDevice} mode="service" />}
               </div>
             ) : selectedService === 'retail-gadgets' ? (
-              <section className="rounded-2xl border border-purple-500/25 bg-slate-900/50 p-6 sm:p-8">
-                <h3 className="text-xl font-bold text-white">Order and track gadgets</h3>
-                <p className="mt-2 text-sm text-slate-300">
-                  Submit the item and quantity you need, choose delivery or pickup, and follow order updates from your account.
-                </p>
-                <button
-                  type="button"
-                  onClick={() => setActiveTab('orders')}
-                  className="mt-5 rounded-lg bg-gradient-to-r from-cyan-500 to-purple-600 px-5 py-3 text-sm font-bold text-black transition-opacity hover:opacity-90"
-                >
-                  Place an order / Track my orders
-                </button>
-              </section>
+              <div className="space-y-8">
+                {user.role === 'admin' && (
+                  <section className="rounded-2xl border border-cyan-500/30 bg-slate-900/70 p-6 sm:p-8">
+                    <h3 className="text-xl font-bold text-white">Add a retail device</h3>
+                    <p className="mt-2 text-sm text-slate-400">Add a laptop or PC listing to the customer service portal. Archived devices can be restored later.</p>
+                    <form onSubmit={handleAddInventoryItem} className="mt-6 grid gap-4 sm:grid-cols-2">
+                      <label className="text-xs text-slate-300">
+                        Brand
+                        <input
+                          type="text"
+                          value={inventoryBrand}
+                          onChange={event => setInventoryBrand(event.target.value)}
+                          maxLength={100}
+                          required
+                          className="mt-1 w-full rounded-lg border border-slate-800 bg-slate-950 px-4 py-2.5 text-sm text-white focus:border-cyan-400 focus:outline-none"
+                          placeholder="HP"
+                        />
+                      </label>
+                      <label className="text-xs text-slate-300">
+                        Descriptive title
+                        <input
+                          type="text"
+                          value={inventoryTitle}
+                          onChange={event => setInventoryTitle(event.target.value)}
+                          maxLength={160}
+                          required
+                          className="mt-1 w-full rounded-lg border border-slate-800 bg-slate-950 px-4 py-2.5 text-sm text-white focus:border-cyan-400 focus:outline-none"
+                          placeholder="HP Book student test"
+                        />
+                      </label>
+                      <label className="text-xs text-slate-300">
+                        Price (GHS)
+                        <input
+                          type="number"
+                          min="0.01"
+                          step="0.01"
+                          value={inventoryPrice}
+                          onChange={event => setInventoryPrice(event.target.value)}
+                          required
+                          className="mt-1 w-full rounded-lg border border-slate-800 bg-slate-950 px-4 py-2.5 text-sm text-white focus:border-cyan-400 focus:outline-none"
+                          placeholder="2500.00"
+                        />
+                      </label>
+                      <label className="text-xs text-slate-300">
+                        RAM
+                        <select
+                          value={inventoryRam}
+                          onChange={event => setInventoryRam(event.target.value)}
+                          className="mt-1 w-full rounded-lg border border-slate-800 bg-slate-950 px-4 py-2.5 text-sm text-white focus:border-cyan-400 focus:outline-none"
+                        >
+                          {inventoryRamOptions.map(option => <option key={option}>{option}</option>)}
+                        </select>
+                      </label>
+                      <label className="text-xs text-slate-300">
+                        Storage
+                        <select
+                          value={inventoryStorage}
+                          onChange={event => setInventoryStorage(event.target.value)}
+                          className="mt-1 w-full rounded-lg border border-slate-800 bg-slate-950 px-4 py-2.5 text-sm text-white focus:border-cyan-400 focus:outline-none"
+                        >
+                          {inventoryStorageOptions.map(option => <option key={option}>{option}</option>)}
+                        </select>
+                      </label>
+                      <label className="text-xs text-slate-300">
+                        Device image (JPG, PNG, WebP; up to 5 MB)
+                        <input
+                          id="inventory-device-image"
+                          type="file"
+                          accept="image/jpeg,image/png,image/webp"
+                          onChange={event => setInventoryImage(event.target.files?.[0] ?? null)}
+                          required
+                          className="mt-1 block w-full rounded-lg border border-slate-800 bg-slate-950 px-3 py-2 text-sm text-slate-300 file:mr-3 file:rounded-md file:border-0 file:bg-slate-800 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-white"
+                        />
+                      </label>
+                      <label className="text-xs text-slate-300 sm:col-span-2">
+                        Key selling points / highlights
+                        <textarea
+                          value={inventoryHighlights}
+                          onChange={event => setInventoryHighlights(event.target.value)}
+                          maxLength={3000}
+                          required
+                          rows={4}
+                          className="mt-1 w-full rounded-lg border border-slate-800 bg-slate-950 px-4 py-2.5 text-sm text-white focus:border-cyan-400 focus:outline-none"
+                          placeholder="Describe the condition, processor, display, battery, or other highlights."
+                        />
+                      </label>
+                      {inventoryError && (
+                        <p role="alert" className="rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-200 sm:col-span-2">{inventoryError}</p>
+                      )}
+                      {inventoryMessage && (
+                        <p role="status" className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm text-emerald-200 sm:col-span-2">{inventoryMessage}</p>
+                      )}
+                      <button
+                        type="submit"
+                        disabled={inventoryBusy}
+                        className="rounded-lg bg-gradient-to-r from-cyan-500 to-purple-600 px-5 py-3 text-sm font-bold text-black transition-opacity disabled:cursor-wait disabled:opacity-60 sm:col-span-2"
+                      >
+                        {inventoryBusy ? 'Adding device…' : 'Add device to service portal'}
+                      </button>
+                    </form>
+                  </section>
+                )}
+
+                <section className="space-y-5">
+                  <div className="flex flex-wrap items-end justify-between gap-3">
+                    <div>
+                      <h3 className="text-2xl font-bold text-white">Available devices</h3>
+                      <p className="mt-1 text-sm text-slate-400">Browse current retail devices and their specifications.</p>
+                    </div>
+                    {user.role !== 'admin' && (
+                      <button
+                        type="button"
+                        onClick={() => setActiveTab('orders')}
+                        className="rounded-lg bg-gradient-to-r from-cyan-500 to-purple-600 px-5 py-2.5 text-sm font-bold text-black"
+                      >
+                        Place an order / Track my orders
+                      </button>
+                    )}
+                  </div>
+                  {inventoryError && (
+                    <p role="alert" className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">{inventoryError}</p>
+                  )}
+                  {inventoryMessage && user.role !== 'admin' && (
+                    <p role="status" className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-200">{inventoryMessage}</p>
+                  )}
+                  {inventoryLoading ? (
+                    <p role="status" className="text-sm text-slate-400">Loading available devices…</p>
+                  ) : inventoryItems.length === 0 ? (
+                    <p className="rounded-xl border border-slate-800 bg-slate-900/60 p-6 text-sm text-slate-400">
+                      {user.role === 'admin' ? 'No devices have been added yet.' : 'There are no retail devices available right now.'}
+                    </p>
+                  ) : (
+                    <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
+                      {inventoryItems.map(item => (
+                        <article key={item.id} className={`overflow-hidden rounded-2xl border bg-slate-900/70 ${item.active ? 'border-slate-800' : 'border-amber-500/30 opacity-75'}`}>
+                          <img
+                            src={relaySupabase?.storage.from(inventoryImageBucket).getPublicUrl(item.image_path).data.publicUrl}
+                            alt={`${item.brand} ${item.title}`}
+                            loading="lazy"
+                            className="h-52 w-full bg-slate-950 object-cover"
+                          />
+                          <div className="space-y-3 p-5">
+                            <div className="flex items-start justify-between gap-3">
+                              <div>
+                                <p className="text-xs font-semibold uppercase tracking-wider text-cyan-300">{item.brand}</p>
+                                <h4 className="mt-1 text-lg font-bold text-white">{item.title}</h4>
+                              </div>
+                              {!item.active && <span className="rounded-full bg-amber-500/10 px-2.5 py-1 text-[10px] font-bold uppercase text-amber-200">Archived</span>}
+                            </div>
+                            <p className="text-xl font-bold text-emerald-300">
+                              {new Intl.NumberFormat('en-GH', { style: 'currency', currency: 'GHS' }).format(item.price)}
+                            </p>
+                            <div className="flex gap-2">
+                              <span className="rounded-md border border-slate-700 bg-slate-950 px-2.5 py-1.5 text-xs text-slate-300">RAM · {item.ram}</span>
+                              <span className="rounded-md border border-slate-700 bg-slate-950 px-2.5 py-1.5 text-xs text-slate-300">Storage · {item.storage}</span>
+                            </div>
+                            <p className="whitespace-pre-line text-sm leading-relaxed text-slate-400">{item.highlights}</p>
+                            {user.role === 'admin' ? (
+                              <button
+                                type="button"
+                                onClick={() => void handleToggleInventoryItem(item)}
+                                className={`w-full rounded-lg border px-4 py-2.5 text-sm font-semibold ${item.active ? 'border-amber-500/30 text-amber-200 hover:bg-amber-500/10' : 'border-emerald-500/30 text-emerald-200 hover:bg-emerald-500/10'}`}
+                              >
+                                {item.active ? 'Archive listing' : 'Restore listing'}
+                              </button>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => setActiveTab('orders')}
+                                className="w-full rounded-lg bg-gradient-to-r from-cyan-500 to-purple-600 px-4 py-2.5 text-sm font-bold text-black"
+                              >
+                                Order / track
+                              </button>
+                            )}
+                          </div>
+                        </article>
+                      ))}
+                    </div>
+                  )}
+                </section>
+              </div>
             ) : (
               <section className="rounded-2xl border border-slate-800 bg-slate-900/50 p-6">
                 <p className="text-sm text-slate-300">No device dashboard is selected yet. Link a purchased device, then open it from your Linked devices list.</p>

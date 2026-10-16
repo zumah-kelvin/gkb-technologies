@@ -59,6 +59,10 @@ To enable order syncing across client and admin devices:
 
 Order records use Supabase row-level security. Clients can insert and view only their own orders; only an admin account explicitly promoted in the database can review all orders or update their status. Support tickets and linked-device records are also stored in Supabase, scoped to the signed-in account, and available again after signing in from another browser. Admins can review submitted support tickets.
 
+### Retail inventory
+
+Run the latest [`supabase/orders_setup.sql`](./supabase/orders_setup.sql) in the Supabase SQL Editor to add the retail inventory table and public product-image bucket policies. The script is safe to rerun; rerunning applies the inventory setup without changing the existing relay tables. Sign in as an admin and open **Inventory & Service** to add laptop/PC listings with an image, brand, title, highlights, GHS price, RAM, and storage. Listings can be archived and restored; archiving hides them from clients but does not delete the listing image or affect existing orders. Customers see active listings in **Retail Gadget Distribution**.
+
 ## Device portal
 
 Sign in to the portal and open **My Devices**:

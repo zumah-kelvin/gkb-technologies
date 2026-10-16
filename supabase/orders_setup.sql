@@ -35,6 +35,96 @@ $$;
 revoke all on function public.is_gkb_admin() from public, anon;
 grant execute on function public.is_gkb_admin() to authenticated;
 
+create table if not exists public.gkb_inventory_items (
+  id uuid primary key default gen_random_uuid(),
+  brand text not null check (length(btrim(brand)) between 1 and 100),
+  title text not null check (length(btrim(title)) between 1 and 160),
+  highlights text not null check (length(btrim(highlights)) between 1 and 3000),
+  price numeric(12, 2) not null check (price > 0),
+  ram text not null check (ram in ('4GB', '8GB', '16GB', '32GB', '64GB')),
+  storage text not null check (storage in ('128GB', '256GB', '512GB', '1TB', '2TB', '4TB')),
+  image_path text not null,
+  active boolean not null default true,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+alter table public.gkb_inventory_items enable row level security;
+revoke all on table public.gkb_inventory_items from public, anon, authenticated;
+grant select on table public.gkb_inventory_items to anon, authenticated;
+grant insert, update on table public.gkb_inventory_items to authenticated;
+
+drop policy if exists gkb_inventory_read_active on public.gkb_inventory_items;
+create policy gkb_inventory_read_active
+  on public.gkb_inventory_items
+  for select
+  to anon
+  using (active);
+
+drop policy if exists gkb_inventory_read_active_or_admin on public.gkb_inventory_items;
+create policy gkb_inventory_read_active_or_admin
+  on public.gkb_inventory_items
+  for select
+  to authenticated
+  using (active or (select public.is_gkb_admin()));
+
+drop policy if exists gkb_inventory_insert_admin on public.gkb_inventory_items;
+create policy gkb_inventory_insert_admin
+  on public.gkb_inventory_items
+  for insert
+  to authenticated
+  with check ((select public.is_gkb_admin()));
+
+drop policy if exists gkb_inventory_update_admin on public.gkb_inventory_items;
+create policy gkb_inventory_update_admin
+  on public.gkb_inventory_items
+  for update
+  to authenticated
+  using ((select public.is_gkb_admin()))
+  with check ((select public.is_gkb_admin()));
+
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values (
+  'gkb-device-images',
+  'gkb-device-images',
+  true,
+  5242880,
+  array['image/jpeg', 'image/png', 'image/webp']
+)
+on conflict (id) do update
+set public = excluded.public,
+    file_size_limit = excluded.file_size_limit,
+    allowed_mime_types = excluded.allowed_mime_types;
+
+drop policy if exists gkb_inventory_images_public_read on storage.objects;
+create policy gkb_inventory_images_public_read
+  on storage.objects
+  for select
+  to anon, authenticated
+  using (bucket_id = 'gkb-device-images');
+
+drop policy if exists gkb_inventory_images_admin_insert on storage.objects;
+create policy gkb_inventory_images_admin_insert
+  on storage.objects
+  for insert
+  to authenticated
+  with check (bucket_id = 'gkb-device-images' and (select public.is_gkb_admin()));
+
+drop policy if exists gkb_inventory_images_admin_update on storage.objects;
+create policy gkb_inventory_images_admin_update
+  on storage.objects
+  for update
+  to authenticated
+  using (bucket_id = 'gkb-device-images' and (select public.is_gkb_admin()))
+  with check (bucket_id = 'gkb-device-images' and (select public.is_gkb_admin()));
+
+drop policy if exists gkb_inventory_images_admin_delete on storage.objects;
+create policy gkb_inventory_images_admin_delete
+  on storage.objects
+  for delete
+  to authenticated
+  using (bucket_id = 'gkb-device-images' and (select public.is_gkb_admin()));
+
 create table if not exists public.gkb_user_devices (
   user_id uuid not null references auth.users(id) on delete cascade,
   device_key text not null,
