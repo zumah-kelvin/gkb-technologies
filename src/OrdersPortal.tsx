@@ -254,27 +254,36 @@ export default function OrdersPortal({
           <div className="border-b border-yellow-500/20 bg-yellow-500/5 p-5 sm:p-6">
             <p className="text-xs font-bold uppercase tracking-wider text-yellow-300">Payment instructions</p>
             <h2 className="mt-2 text-xl font-bold text-white">Send payment with MTN Mobile Money</h2>
-            <p className="mt-2 text-sm text-slate-300">Enter the details below in your MTN MoMo payment flow and verify the recipient name before confirming.</p>
+            <p className="mt-2 text-sm text-slate-300">Verify the recipient name and number in your MTN MoMo payment flow before confirming.</p>
           </div>
-          <dl className="space-y-4 p-5 sm:p-6">
-            <div>
-              <dt className="text-xs font-semibold uppercase tracking-wider text-slate-500">Network</dt>
-              <dd className="mt-1 text-base font-semibold text-white">MTN Mobile Money</dd>
+          <div className="p-4 sm:p-6">
+            <div className="mx-auto max-w-xl overflow-hidden rounded-xl border border-slate-700 bg-slate-800 shadow-lg">
+              <div className="flex items-center gap-4 p-4 sm:gap-5 sm:p-5">
+                <img
+                  src="/mtn-momo-account-holder.png"
+                  alt="Portrait of the MTN Mobile Money account holder"
+                  className="h-24 w-20 shrink-0 rounded-lg border border-slate-600 object-cover object-center sm:h-28 sm:w-24"
+                />
+                <dl className="min-w-0 space-y-2.5">
+                  <div>
+                    <dt className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Network</dt>
+                    <dd className="text-sm font-bold text-yellow-200 sm:text-base">MTN Mobile Money</dd>
+                  </div>
+                  <div>
+                    <dt className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Payment number</dt>
+                    <dd className="text-lg font-black tracking-wide text-white sm:text-xl">0552117787</dd>
+                  </div>
+                  <div>
+                    <dt className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Account holder</dt>
+                    <dd className="break-words text-sm font-bold text-white sm:text-base">zumah kelvin🥳😍</dd>
+                  </div>
+                </dl>
+              </div>
+              <div className="bg-sky-950 px-4 py-2.5 text-center text-xs font-black tracking-[0.2em] text-sky-100 sm:text-sm">
+                GKB TECHNOLOGIES
+              </div>
             </div>
-            <div>
-              <dt className="text-xs font-semibold uppercase tracking-wider text-slate-500">Payment number</dt>
-              <dd className="mt-1 text-2xl font-black tracking-wider text-yellow-200">0552117787</dd>
-            </div>
-            <div>
-              <dt className="text-xs font-semibold uppercase tracking-wider text-slate-500">Account holder</dt>
-              <dd className="mt-1 text-lg font-bold text-white">zumah kelvin🥳😍</dd>
-            </div>
-          </dl>
-          <img
-            src="/mtn-momo-account-holder.png"
-            alt="GKB Technologies account holder"
-            className="max-h-96 w-full object-cover object-center"
-          />
+          </div>
         </section>
 
         <p className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-4 text-xs leading-relaxed text-amber-100">

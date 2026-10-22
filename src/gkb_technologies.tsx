@@ -6,11 +6,12 @@ import {
   Cpu, Shield, Smartphone, Wrench, Phone, Mail, Globe, Camera,
   User, Lock, LogOut, PlusCircle, CheckCircle, AlertTriangle, Unlink,
   Send, Server, Terminal, Activity, Layers, ArrowRight, CheckSquare, Square,
-  Sun, Moon, Zap, Wifi, Radio, Gauge, BatteryCharging, Lightbulb, Pencil, Save, X
+  Sun, Moon, Zap, Wifi, Radio, Gauge, BatteryCharging, Lightbulb, Pencil, Save, X,
+  Volume2, VolumeX, Siren, ShieldAlert, ShieldCheck, Eye, EyeOff, Clock3
 } from 'lucide-react';
 
 type ServiceType = 'student-projects' | 'retail-gadgets';
-type StudentProject = 'fuel-tank-monitor' | 'water-tank-monitor' | 'prepaid-energy-meter' | 'alcohol-breathalyzer' | 'fan-regulator' | 'light-control' | 'relay-test';
+type StudentProject = 'fuel-tank-monitor' | 'water-tank-monitor' | 'prepaid-energy-meter' | 'alcohol-breathalyzer' | 'fan-regulator' | 'light-control' | 'relay-test' | 'smart-security-system';
 
 type UserType = {
   id: string;
@@ -59,7 +60,8 @@ function isStoredDevice(value: unknown): value is Device {
     'alcohol-breathalyzer',
     'fan-regulator',
     'light-control',
-    'relay-test'
+    'relay-test',
+    'smart-security-system'
   ];
   return typeof device.id === 'number' &&
     typeof device.name === 'string' &&
@@ -127,7 +129,7 @@ function InventoryHighlights({ text }: { text: string }) {
 }
 
 const defaultDevices: Device[] = [
-  { id: 1, name: 'Smart Home Security System v1', key: 'GKB-SEC-9988', status: 'Online', lastAlert: 'Intrusion detected at Living Room (14:22 PM)' },
+  { id: 1, name: 'Smart Home Security System v1', key: 'GKB-SEC-9988', status: 'Online', lastAlert: 'Intrusion detected at Living Room (14:22 PM)', project: 'smart-security-system' },
   { id: 2, name: 'Smart Water Tank Monitor', key: 'GKB-SWP-0001', legacyKeys: ['GKB-WTR-4412'], status: 'Online', lastAlert: 'Water level stable at 68%', project: 'water-tank-monitor' },
   { id: 3, name: 'Industrial Fuel Tank Monitor', key: 'GKB-IUFT-0001', status: 'Online', lastAlert: 'Fuel level stable at 72%', project: 'fuel-tank-monitor' },
   { id: 4, name: 'GKB Smart Prepaid Energy Meter', key: 'GKB-SPEM-0001', status: 'Online', lastAlert: 'Meter secure · balance GHS 24.50', project: 'prepaid-energy-meter' },
@@ -2143,6 +2145,731 @@ function PrepaidEnergyMeterDashboard({ mode }: { mode: 'test' | 'service' }) {
   );
 }
 
+function SmartHomeSecurityDashboard({ mode, device }: { mode: 'test' | 'service'; device?: Device }) {
+  const [armedMode, setArmedMode] = useState<'away' | 'stay' | 'disarmed'>('away');
+  const [motionDetected, setMotionDetected] = useState(true);
+  const [soundMuted, setSoundMuted] = useState(false);
+  const [autoSimulate, setAutoSimulate] = useState(false);
+  const [pirSensitivity, setPirSensitivity] = useState<'low' | 'medium' | 'high'>('high');
+  const [audioNeedsInteraction, setAudioNeedsInteraction] = useState(false);
+  const [activeZone, setActiveZone] = useState<string>('zone-1');
+  const [zones, setZones] = useState<Array<{
+    id: string;
+    name: string;
+    location: string;
+    type: 'pir' | 'magnetic' | 'vibration' | 'infrared';
+    status: 'triggered' | 'secure';
+    lastTripped: string;
+  }>>([
+    { id: 'zone-1', name: 'Living Room PIR #01', location: 'Living Room (Front Window)', type: 'pir', status: 'triggered', lastTripped: 'Just now (14:22:05)' },
+    { id: 'zone-2', name: 'Front Entrance Contact', location: 'Main Front Door', type: 'magnetic', status: 'secure', lastTripped: '12 mins ago' },
+    { id: 'zone-3', name: 'Kitchen Glass & Window', location: 'Rear Kitchen Window', type: 'vibration', status: 'secure', lastTripped: '1 hour ago' },
+    { id: 'zone-4', name: 'Patio Infrared Barrier', location: 'Backyard Perimeter', type: 'infrared', status: 'secure', lastTripped: 'Yesterday' }
+  ]);
+  const [alerts, setAlerts] = useState<Array<{
+    id: string;
+    timestamp: string;
+    title: string;
+    detail: string;
+    severity: 'critical' | 'warning' | 'info';
+  }>>([
+    { id: 'alert-1', timestamp: '14:22:05', title: 'Motion Tripped · Living Room', detail: 'PIR Motion Sensor #01 detected movement in Zone 1. Blinking red background strobe & audio buzzer energized.', severity: 'critical' },
+    { id: 'alert-2', timestamp: '14:20:00', title: 'System Armed (Away)', detail: 'All interior PIR and perimeter contact sensors armed with active intrusion buzzer protocol.', severity: 'info' },
+    { id: 'alert-3', timestamp: '14:15:20', title: 'Gateway Heartbeat OK', detail: 'ESP32-CAM Node connected via MQTT on 2.4GHz Wi-Fi (RSSI: -58 dBm).', severity: 'info' }
+  ]);
+
+  const audioCtxRef = useRef<AudioContext | null>(null);
+  const buzzerCleanupRef = useRef<(() => void) | null>(null);
+
+  // Helper to ensure AudioContext exists and handle browser autoplay
+  const ensureAudioContext = useCallback(() => {
+    try {
+      const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+      if (!AudioCtx) return null;
+      if (!audioCtxRef.current) {
+        audioCtxRef.current = new AudioCtx();
+      }
+      if (audioCtxRef.current.state === 'suspended') {
+        audioCtxRef.current.resume().then(() => {
+          setAudioNeedsInteraction(false);
+        }).catch(() => {
+          setAudioNeedsInteraction(true);
+        });
+      } else {
+        setAudioNeedsInteraction(false);
+      }
+      return audioCtxRef.current;
+    } catch {
+      return null;
+    }
+  }, []);
+
+  // Stop buzzer cleanly
+  const stopBuzzer = useCallback(() => {
+    if (buzzerCleanupRef.current) {
+      try {
+        buzzerCleanupRef.current();
+      } catch {
+        // ignore
+      }
+      buzzerCleanupRef.current = null;
+    }
+  }, []);
+
+  // Synthesize authentic electronic security buzzer sound using Web Audio API
+  const startBuzzer = useCallback(() => {
+    stopBuzzer();
+    const ctx = ensureAudioContext();
+    if (!ctx) return;
+    if (ctx.state === 'suspended') {
+      setAudioNeedsInteraction(true);
+      return;
+    }
+
+    try {
+      const now = ctx.currentTime;
+
+      // Primary rasping oscillator: sawtooth wave at 165Hz
+      const osc1 = ctx.createOscillator();
+      osc1.type = 'sawtooth';
+      osc1.frequency.setValueAtTime(165, now);
+
+      // Secondary tone at 330Hz for metallic buzzer grit
+      const osc2 = ctx.createOscillator();
+      osc2.type = 'square';
+      osc2.frequency.setValueAtTime(330, now);
+
+      // LFO for fast pulsed buzzing (10Hz: BZZ-BZZ-BZZ-BZZ)
+      const lfo = ctx.createOscillator();
+      lfo.type = 'square';
+      lfo.frequency.setValueAtTime(10, now);
+
+      const lfoGain = ctx.createGain();
+      lfoGain.gain.setValueAtTime(0.75, now);
+
+      const pulseGain = ctx.createGain();
+      pulseGain.gain.setValueAtTime(0.25, now);
+
+      // Master output gain with smooth ramp
+      const masterGain = ctx.createGain();
+      masterGain.gain.setValueAtTime(0.0001, now);
+      masterGain.gain.linearRampToValueAtTime(0.18, now + 0.05);
+
+      // Lowpass filter to shape the electronic rasp
+      const filter = ctx.createBiquadFilter();
+      filter.type = 'lowpass';
+      filter.frequency.setValueAtTime(1200, now);
+      filter.Q.setValueAtTime(1.5, now);
+
+      // Connect LFO modulation
+      lfo.connect(lfoGain);
+      lfoGain.connect(pulseGain.gain);
+
+      // Mix osc1 and osc2 into filter
+      osc1.connect(filter);
+      const osc2Gain = ctx.createGain();
+      osc2Gain.gain.setValueAtTime(0.35, now);
+      osc2.connect(osc2Gain);
+      osc2Gain.connect(filter);
+
+      filter.connect(pulseGain);
+      pulseGain.connect(masterGain);
+      masterGain.connect(ctx.destination);
+
+      osc1.start(now);
+      osc2.start(now);
+      lfo.start(now);
+
+      let stopped = false;
+      buzzerCleanupRef.current = () => {
+        if (stopped) return;
+        stopped = true;
+        try {
+          const stopTime = ctx.currentTime;
+          masterGain.gain.cancelScheduledValues(stopTime);
+          masterGain.gain.linearRampToValueAtTime(0.0001, stopTime + 0.04);
+          setTimeout(() => {
+            try {
+              osc1.stop();
+              osc2.stop();
+              lfo.stop();
+              osc1.disconnect();
+              osc2.disconnect();
+              lfo.disconnect();
+              filter.disconnect();
+              masterGain.disconnect();
+            } catch {
+              // ignore
+            }
+          }, 50);
+        } catch {
+          // ignore
+        }
+      };
+    } catch (e) {
+      console.warn('Audio buzzer startup failed:', e);
+    }
+  }, [ensureAudioContext, stopBuzzer]);
+
+  const isAlarmActive = motionDetected && armedMode !== 'disarmed';
+
+  // Manage buzzer playback according to motion, sound mute, and arming state
+  useEffect(() => {
+    if (isAlarmActive && !soundMuted) {
+      startBuzzer();
+    } else {
+      stopBuzzer();
+    }
+    return () => {
+      stopBuzzer();
+    };
+  }, [isAlarmActive, soundMuted, startBuzzer, stopBuzzer]);
+
+  // Teardown AudioContext on unmount
+  useEffect(() => {
+    return () => {
+      stopBuzzer();
+      if (audioCtxRef.current) {
+        try {
+          audioCtxRef.current.close().catch(() => {});
+        } catch {
+          // ignore
+        }
+        audioCtxRef.current = null;
+      }
+    };
+  }, [stopBuzzer]);
+
+  // Auto-simulate periodic motion pulses if toggled
+  useEffect(() => {
+    if (!autoSimulate) return;
+    const interval = setInterval(() => {
+      setMotionDetected(current => {
+        const next = !current;
+        setZones(prev => prev.map(z => z.id === 'zone-1' ? {
+          ...z,
+          status: next ? 'triggered' : 'secure',
+          lastTripped: next ? 'Just now' : z.lastTripped
+        } : z));
+        return next;
+      });
+    }, 8000);
+    return () => clearInterval(interval);
+  }, [autoSimulate]);
+
+  const handleTriggerMotion = () => {
+    ensureAudioContext();
+    setMotionDetected(true);
+    setZones(prev => prev.map(z => z.id === 'zone-1' ? {
+      ...z,
+      status: 'triggered',
+      lastTripped: 'Just now'
+    } : z));
+    const timeStr = new Date().toLocaleTimeString();
+    setAlerts(prev => [{
+      id: `${Date.now()}`,
+      timestamp: timeStr,
+      title: 'Motion Tripped · Living Room PIR #01',
+      detail: 'PIR infrared movement detected. Blinking red background strobe & electronic alarm buzzer activated.',
+      severity: 'critical'
+    }, ...prev.slice(0, 9)]);
+  };
+
+  const handleClearMotion = () => {
+    setMotionDetected(false);
+    setZones(prev => prev.map(z => z.id === 'zone-1' ? {
+      ...z,
+      status: 'secure'
+    } : z));
+    const timeStr = new Date().toLocaleTimeString();
+    setAlerts(prev => [{
+      id: `${Date.now()}`,
+      timestamp: timeStr,
+      title: 'Motion Cleared · Zone 1 Reset',
+      detail: 'Sensors reset to nominal idle state. Blinking red strobe and buzzer silenced.',
+      severity: 'info'
+    }, ...prev.slice(0, 9)]);
+  };
+
+  const toggleSound = () => {
+    ensureAudioContext();
+    setSoundMuted(prev => !prev);
+  };
+
+  const toggleZone = (zoneId: string) => {
+    ensureAudioContext();
+    setZones(prev => prev.map(z => {
+      if (z.id !== zoneId) return z;
+      const nextStatus = z.status === 'triggered' ? 'secure' : 'triggered';
+      if (zoneId === 'zone-1') {
+        setMotionDetected(nextStatus === 'triggered');
+      }
+      return {
+        ...z,
+        status: nextStatus,
+        lastTripped: nextStatus === 'triggered' ? 'Just now' : z.lastTripped
+      };
+    }));
+  };
+
+  return (
+    <section
+      aria-labelledby="security-system-title"
+      onClick={ensureAudioContext}
+      className={`space-y-6 rounded-2xl border p-4 sm:p-6 transition-all duration-300 relative overflow-hidden ${
+        isAlarmActive
+          ? 'gkb-security-red-blink text-white'
+          : 'border-cyan-500/20 bg-slate-900/80 text-slate-100'
+      }`}
+    >
+      <style>{`
+        @keyframes gkb-security-red-blink {
+          0%, 100% {
+            background-color: rgba(127, 29, 29, 0.38);
+            border-color: rgba(239, 68, 68, 0.7);
+            box-shadow: 0 0 35px rgba(239, 68, 68, 0.5), inset 0 0 60px rgba(185, 28, 28, 0.35);
+          }
+          50% {
+            background-color: rgba(220, 38, 38, 0.85);
+            border-color: rgba(254, 202, 202, 1);
+            box-shadow: 0 0 85px rgba(239, 68, 68, 0.95), inset 0 0 110px rgba(239, 68, 68, 0.75);
+          }
+        }
+        .gkb-security-red-blink {
+          animation: gkb-security-red-blink 0.85s infinite ease-in-out;
+        }
+        @keyframes gkb-siren-strobe {
+          0%, 100% { transform: scale(1) rotate(-6deg); }
+          50% { transform: scale(1.15) rotate(6deg); }
+        }
+        .gkb-siren-strobe {
+          animation: gkb-siren-strobe 0.6s infinite ease-in-out;
+        }
+        @keyframes gkb-radar-ring {
+          0% { transform: scale(0.4); opacity: 1; }
+          100% { transform: scale(2.4); opacity: 0; }
+        }
+        .gkb-radar-ring {
+          animation: gkb-radar-ring 1.5s infinite ease-out;
+        }
+      `}</style>
+
+      {/* Top Header Badge & Navigation Info */}
+      <header className="flex flex-col gap-4 rounded-xl border border-white/10 bg-slate-950/60 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
+        <div>
+          <div className="mb-2 flex flex-wrap items-center gap-2">
+            <span className="rounded-full border border-cyan-400/30 bg-cyan-400/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.18em] text-cyan-300">
+              {mode === 'test' ? 'Private device test preview' : 'Service portal'}
+            </span>
+            <span className="rounded-full border border-purple-400/30 bg-purple-400/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-purple-300">
+              Key: {device?.key ?? 'GKB-SEC-9988'}
+            </span>
+            <span className={`rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider ${
+              armedMode === 'away' ? 'border-red-500/40 bg-red-500/20 text-red-300' : armedMode === 'stay' ? 'border-amber-500/40 bg-amber-500/20 text-amber-300' : 'border-slate-600 bg-slate-800 text-slate-400'
+            }`}>
+              Armed Mode: {armedMode.toUpperCase()}
+            </span>
+          </div>
+          <h2 id="security-system-title" className="text-xl font-bold text-white sm:text-2xl">
+            Smart Home Security System v1
+          </h2>
+          <p className="mt-1 text-sm text-slate-300">
+            Multi-zone PIR motion monitoring · Blinking red background strobe · Web Audio alarm buzzer
+          </p>
+        </div>
+
+        {/* Quick Connection & Sound Indicators */}
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={toggleSound}
+            aria-label={soundMuted ? 'Unmute buzzer sound' : 'Mute buzzer sound'}
+            className={`inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-bold transition-all ${
+              soundMuted
+                ? 'border-slate-700 bg-slate-800/80 text-slate-400 hover:text-white'
+                : isAlarmActive
+                  ? 'border-amber-400 bg-amber-500/25 text-amber-200 shadow-[0_0_15px_rgba(251,191,36,0.5)] animate-pulse'
+                  : 'border-cyan-500/30 bg-cyan-500/10 text-cyan-300 hover:bg-cyan-500/20'
+            }`}
+          >
+            {soundMuted ? <VolumeX className="h-4 w-4 text-slate-400" /> : <Volume2 className="h-4 w-4 text-cyan-300" />}
+            <span>Buzzer: {soundMuted ? 'Muted' : isAlarmActive ? 'Buzzing' : 'Ready'}</span>
+          </button>
+          <span className="inline-flex items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-xs font-semibold text-emerald-300">
+            <span className="h-2 w-2 rounded-full bg-emerald-400 animate-ping" />
+            Gateway Online
+          </span>
+          <span className="inline-flex items-center gap-1.5 rounded-lg border border-cyan-500/20 bg-slate-900/60 px-3 py-2 text-xs font-medium text-cyan-300">
+            <Wifi className="h-3.5 w-3.5" />
+            2.4GHz (-58 dBm)
+          </span>
+        </div>
+      </header>
+
+      {/* Browser Autoplay Warning Banner if AudioContext is suspended */}
+      {isAlarmActive && !soundMuted && audioNeedsInteraction && (
+        <button
+          type="button"
+          onClick={() => {
+            ensureAudioContext();
+            if (audioCtxRef.current?.state === 'suspended') {
+              audioCtxRef.current.resume().then(() => {
+                setAudioNeedsInteraction(false);
+              }).catch(() => {});
+            }
+          }}
+          className="w-full rounded-xl border-2 border-amber-400 bg-amber-500/25 p-3 text-center text-xs font-black uppercase tracking-wider text-amber-200 shadow-[0_0_20px_rgba(245,158,11,0.5)] transition-all hover:bg-amber-500/35 animate-bounce"
+        >
+          🔊 Browser blocked autoplay! Click anywhere here to unleash the buzzing motion alarm sound!
+        </button>
+      )}
+
+      {/* Active Motion Alarm Strobe / Secure Banner */}
+      {isAlarmActive ? (
+        <div className="flex flex-col gap-4 rounded-xl border-2 border-red-400 bg-red-950/90 p-4 shadow-[0_0_35px_rgba(239,68,68,0.7)] sm:flex-row sm:items-center sm:justify-between animate-pulse">
+          <div className="flex items-center gap-3">
+            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-red-600 text-white shadow-xl shadow-red-600/60 gkb-siren-strobe">
+              <Siren className="h-8 w-8" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="rounded bg-red-600 px-2.5 py-0.5 text-[10px] font-black uppercase tracking-widest text-white shadow">
+                  CRITICAL INTRUSION
+                </span>
+                <span className="text-xs font-bold text-red-200">Zone 1 Breach</span>
+              </div>
+              <h3 className="text-lg font-black tracking-wide text-white sm:text-2xl">
+                MOTION DETECTED · LIVING ROOM
+              </h3>
+              <p className="text-xs text-red-100 sm:text-sm">
+                PIR sensor tripped · Blinking red background strobe active · {soundMuted ? 'Audio buzzer muted' : 'Electronic audio buzzer sounding continuously'}
+              </p>
+            </div>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={handleClearMotion}
+              className="inline-flex items-center gap-2 rounded-xl bg-white px-5 py-2.5 text-xs font-black uppercase tracking-wider text-red-950 shadow-xl transition-all hover:bg-slate-100 hover:scale-105"
+            >
+              <CheckCircle className="h-4 w-4 text-emerald-600" />
+              Clear Motion & Reset
+            </button>
+            <button
+              type="button"
+              onClick={toggleSound}
+              className="inline-flex items-center gap-2 rounded-xl border border-red-300 bg-red-900/80 px-4 py-2.5 text-xs font-bold text-white transition-all hover:bg-red-800"
+            >
+              {soundMuted ? <VolumeX className="h-4 w-4 text-amber-300" /> : <Volume2 className="h-4 w-4 text-white" />}
+              {soundMuted ? 'Unmute Buzzer' : 'Silence Buzzer'}
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="flex flex-col gap-3 rounded-xl border border-emerald-500/40 bg-emerald-950/30 p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-3">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-emerald-500/20 text-emerald-400">
+              <ShieldCheck className="h-6 w-6" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="rounded bg-emerald-500/30 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-emerald-200">
+                  SYSTEM READY
+                </span>
+                <span className="text-xs text-slate-400">All 4 Zones Secure</span>
+              </div>
+              <h3 className="text-sm font-bold text-white sm:text-base">
+                PERIMETER & INTERIOR SECURE · MONITORING ACTIVE
+              </h3>
+              <p className="text-xs text-slate-400">
+                No infrared disturbance. Background buzzer and blinking red strobe in standby.
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={handleTriggerMotion}
+            className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-red-600 to-rose-600 px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-white shadow-[0_0_20px_rgba(239,68,68,0.5)] transition-all hover:scale-105 hover:from-red-500 hover:to-rose-500"
+          >
+            <Siren className="h-4 w-4 animate-bounce" />
+            Simulate Motion Detection
+          </button>
+        </div>
+      )}
+
+      {/* Interactive Sensor Zones Grid */}
+      <div>
+        <div className="mb-3 flex items-center justify-between">
+          <h3 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-slate-300">
+            <Activity className="h-4 w-4 text-cyan-400" />
+            Monitored Security Zones
+          </h3>
+          <span className="text-xs text-slate-400">Click any zone to test trigger / reset</span>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {zones.map(zone => {
+            const isTriggered = zone.status === 'triggered' && armedMode !== 'disarmed';
+            return (
+              <button
+                key={zone.id}
+                type="button"
+                onClick={() => {
+                  setActiveZone(zone.id);
+                  toggleZone(zone.id);
+                }}
+                className={`relative flex flex-col justify-between overflow-hidden rounded-xl border p-4 text-left transition-all ${
+                  isTriggered
+                    ? 'border-red-400 bg-red-950/70 shadow-[0_0_20px_rgba(239,68,68,0.5)] animate-pulse'
+                    : activeZone === zone.id
+                      ? 'border-cyan-400/50 bg-slate-950/70'
+                      : 'border-white/10 bg-slate-950/40 hover:border-white/20'
+                }`}
+              >
+                {/* Radar effect on triggered zone */}
+                {isTriggered && (
+                  <span className="pointer-events-none absolute -right-4 -top-4 h-16 w-16 rounded-full bg-red-500/20 gkb-radar-ring" />
+                )}
+                <div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-mono uppercase tracking-wider text-slate-400">
+                      {zone.id.toUpperCase()} · {zone.type.toUpperCase()}
+                    </span>
+                    <span className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-bold uppercase ${
+                      isTriggered ? 'bg-red-600 text-white animate-pulse' : 'bg-emerald-500/20 text-emerald-300'
+                    }`}>
+                      {isTriggered ? '🚨 BREACH' : 'SECURE'}
+                    </span>
+                  </div>
+                  <h4 className="mt-2 font-bold text-white text-sm">{zone.name}</h4>
+                  <p className="text-xs text-slate-400">{zone.location}</p>
+                </div>
+                <div className="mt-4 flex items-center justify-between border-t border-white/5 pt-2 text-[11px]">
+                  <span className="text-slate-400">Status</span>
+                  <span className={`font-semibold ${isTriggered ? 'text-red-300' : 'text-slate-300'}`}>
+                    {isTriggered ? 'Motion Tripped!' : 'Clear & Armed'}
+                  </span>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Interactive Control Deck & Live Telemetry */}
+      <div className="grid gap-6 lg:grid-cols-3">
+        {/* Arming & Mode Controls */}
+        <div className="rounded-xl border border-white/10 bg-slate-950/50 p-5 space-y-4">
+          <h3 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-slate-300">
+            <Lock className="h-4 w-4 text-purple-400" />
+            Alarm System Arming
+          </h3>
+          <p className="text-xs text-slate-400">
+            Choose system arming mode. Disarming halts visual strobes and suppresses the audio buzzer.
+          </p>
+          <div className="grid grid-cols-3 gap-2">
+            {(['away', 'stay', 'disarmed'] as const).map(modeKey => (
+              <button
+                key={modeKey}
+                type="button"
+                onClick={() => {
+                  ensureAudioContext();
+                  setArmedMode(modeKey);
+                  const timeStr = new Date().toLocaleTimeString();
+                  setAlerts(prev => [{
+                    id: `${Date.now()}`,
+                    timestamp: timeStr,
+                    title: `Armed Mode Changed: ${modeKey.toUpperCase()}`,
+                    detail: modeKey === 'disarmed'
+                      ? 'System disarmed. Visual and audio alarms suppressed.'
+                      : `System set to ${modeKey.toUpperCase()} mode. Motion detection will trigger strobe & buzzer.`,
+                    severity: modeKey === 'disarmed' ? 'warning' : 'info'
+                  }, ...prev.slice(0, 9)]);
+                }}
+                className={`rounded-lg py-2.5 text-xs font-bold uppercase tracking-wider transition-all ${
+                  armedMode === modeKey
+                    ? modeKey === 'away'
+                      ? 'bg-red-600 text-white shadow-[0_0_15px_rgba(239,68,68,0.5)]'
+                      : modeKey === 'stay'
+                        ? 'bg-amber-500 text-black shadow-[0_0_15px_rgba(245,158,11,0.5)]'
+                        : 'bg-slate-200 text-black shadow'
+                    : 'border border-slate-800 bg-slate-900 text-slate-400 hover:text-white'
+                }`}
+              >
+                {modeKey}
+              </button>
+            ))}
+          </div>
+
+          <div className="border-t border-white/5 pt-4 space-y-3">
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-slate-400">PIR Infrared Sensitivity</span>
+              <span className="font-mono text-cyan-300 uppercase">{pirSensitivity}</span>
+            </div>
+            <div className="grid grid-cols-3 gap-1.5">
+              {(['low', 'medium', 'high'] as const).map(level => (
+                <button
+                  key={level}
+                  type="button"
+                  onClick={() => setPirSensitivity(level)}
+                  className={`rounded border px-2 py-1 text-[11px] font-semibold uppercase ${
+                    pirSensitivity === level
+                      ? 'border-cyan-400 bg-cyan-400/20 text-cyan-200'
+                      : 'border-slate-800 text-slate-500 hover:text-slate-300'
+                  }`}
+                >
+                  {level}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="border-t border-white/5 pt-3">
+            <label className="flex items-center justify-between text-xs text-slate-300 cursor-pointer">
+              <span>Auto-simulate periodic motion (8s)</span>
+              <input
+                type="checkbox"
+                checked={autoSimulate}
+                onChange={e => setAutoSimulate(e.target.checked)}
+                className="h-4 w-4 rounded border-slate-700 bg-slate-900 text-cyan-500 focus:ring-cyan-400"
+              />
+            </label>
+          </div>
+        </div>
+
+        {/* Audio Buzzer Engine Status */}
+        <div className="rounded-xl border border-white/10 bg-slate-950/50 p-5 space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-slate-300">
+              <Radio className="h-4 w-4 text-cyan-400" />
+              Buzzer Sound Generator
+            </h3>
+            <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${
+              isAlarmActive && !soundMuted ? 'bg-amber-400/20 text-amber-300 animate-pulse' : 'bg-slate-800 text-slate-400'
+            }`}>
+              {isAlarmActive && !soundMuted ? 'Sounding' : 'Idle'}
+            </span>
+          </div>
+
+          <p className="text-xs text-slate-400">
+            Synthesizes a 165Hz electronic security buzzer with 10Hz square-wave gating via the native Web Audio API.
+          </p>
+
+          <div className="rounded-lg border border-slate-800 bg-slate-900/80 p-3 space-y-2 text-xs">
+            <div className="flex justify-between">
+              <span className="text-slate-400">Audio Synthesis</span>
+              <span className="font-mono text-cyan-300">Sawtooth 165Hz + 330Hz</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-slate-400">LFO Pulse Gating</span>
+              <span className="font-mono text-cyan-300">10 Hz Fast Pulse</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-slate-400">Acoustic Filter</span>
+              <span className="font-mono text-cyan-300">Lowpass 1200Hz Q:1.5</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-slate-400">Alarm Audio Output</span>
+              <span className={`font-mono font-bold ${soundMuted ? 'text-amber-300' : 'text-emerald-300'}`}>
+                {soundMuted ? 'MUTED' : isAlarmActive ? 'ACTIVE (BUZZING)' : 'READY'}
+              </span>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={toggleSound}
+            className={`w-full flex items-center justify-center gap-2 rounded-lg py-2.5 text-xs font-bold uppercase tracking-wider transition-all ${
+              soundMuted
+                ? 'border border-amber-500/40 bg-amber-500/10 text-amber-200 hover:bg-amber-500/20'
+                : 'border border-cyan-500/40 bg-cyan-500/10 text-cyan-300 hover:bg-cyan-500/20'
+            }`}
+          >
+            {soundMuted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
+            {soundMuted ? 'Unmute Electronic Buzzer' : 'Mute Buzzer Audio'}
+          </button>
+        </div>
+
+        {/* Hardware Gateway & Telemetry */}
+        <div className="rounded-xl border border-white/10 bg-slate-950/50 p-5 space-y-4">
+          <h3 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-slate-300">
+            <Cpu className="h-4 w-4 text-purple-400" />
+            Hardware Node Specs
+          </h3>
+          <div className="space-y-2 text-xs">
+            <div className="flex justify-between rounded-lg border border-slate-800 bg-slate-900/60 p-2.5">
+              <span className="text-slate-400">Microcontroller</span>
+              <span className="font-mono text-white">ESP32-WROOM-32D</span>
+            </div>
+            <div className="flex justify-between rounded-lg border border-slate-800 bg-slate-900/60 p-2.5">
+              <span className="text-slate-400">PIR Motion Sensor</span>
+              <span className="font-mono text-white">HC-SR501 Pyroelectric</span>
+            </div>
+            <div className="flex justify-between rounded-lg border border-slate-800 bg-slate-900/60 p-2.5">
+              <span className="text-slate-400">IR Voltage Delta</span>
+              <span className={`font-mono font-bold ${motionDetected ? 'text-red-400' : 'text-emerald-400'}`}>
+                {motionDetected ? '3.82V (Trip High)' : '0.14V (Baseline)'}
+              </span>
+            </div>
+            <div className="flex justify-between rounded-lg border border-slate-800 bg-slate-900/60 p-2.5">
+              <span className="text-slate-400">Backup Battery</span>
+              <span className="font-mono text-emerald-400">99% · AC Online</span>
+            </div>
+          </div>
+          <p className="text-[11px] leading-relaxed text-slate-400">
+            Simulated demonstration. In production, PIR pins trigger ESP32 hardware interrupts to notify the GKB Cloud Gateway over encrypted MQTT.
+          </p>
+        </div>
+      </div>
+
+      {/* Live Security Event History */}
+      <div className="rounded-xl border border-white/10 bg-slate-950/50 p-4 sm:p-5">
+        <div className="mb-3 flex items-center justify-between">
+          <h3 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-slate-300">
+            <Clock3 className="h-4 w-4 text-cyan-400" />
+            Intrusion & Motion Event Log
+          </h3>
+          <button
+            type="button"
+            onClick={() => setAlerts([])}
+            className="text-xs text-slate-500 hover:text-slate-300 transition-colors"
+          >
+            Clear Log
+          </button>
+        </div>
+        <div className="space-y-2">
+          {alerts.length === 0 ? (
+            <p className="py-4 text-center text-xs text-slate-500">No events logged in this session.</p>
+          ) : (
+            alerts.map(item => (
+              <div
+                key={item.id}
+                className={`flex flex-col gap-1 rounded-lg border p-3 sm:flex-row sm:items-center sm:justify-between text-xs transition-colors ${
+                  item.severity === 'critical'
+                    ? 'border-red-500/40 bg-red-950/40 text-red-200'
+                    : item.severity === 'warning'
+                      ? 'border-amber-500/30 bg-amber-500/10 text-amber-200'
+                      : 'border-slate-800 bg-slate-900/50 text-slate-300'
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <span className="font-mono text-[11px] text-slate-400">{item.timestamp}</span>
+                  <span className="font-bold text-white">{item.title}</span>
+                </div>
+                <p className="text-xs text-slate-300">{item.detail}</p>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+
+      {/* Safety Notice */}
+      <p role="status" className="rounded-xl border border-amber-500/20 bg-amber-500/5 px-4 py-3 text-xs leading-relaxed text-amber-200">
+        Smart Home Security preview: PIR sensor telemetry, zone breach triggers, blinking red background strobe, and buzzing sound are active in this demonstration. Physical sirens, CCTV cameras, and SMS relays operate in hardware firmware upon installation.
+      </p>
+    </section>
+  );
+}
+
 function GenericDeviceDashboard({ device, mode }: { device: Device; mode: 'test' | 'service' }) {
   return (
     <section className="space-y-5">
@@ -3327,7 +4054,9 @@ export default function GKBSite() {
               <ArrowRight className="h-4 w-4 rotate-180" />
               Back to My Devices
             </button>
-            {testDevice.project === 'fuel-tank-monitor'
+            {testDevice.project === 'smart-security-system' || testDevice.key === 'GKB-SEC-9988'
+              ? <SmartHomeSecurityDashboard mode="test" device={testDevice} />
+              : testDevice.project === 'fuel-tank-monitor'
               ? <FuelTankMonitorDashboard mode="test" />
               : testDevice.project === 'relay-test'
                 ? <RelayTestDashboard mode="test" />
@@ -3356,11 +4085,13 @@ export default function GKBSite() {
                 {selectedDevice?.name ?? (selectedService === 'student-projects' ? 'Student Project Solutions' : 'Retail Gadget Distribution')}
               </h2>
               <p className="mt-2 text-sm text-slate-300">
-                 {selectedDevice?.project === 'relay-test'
-                   ? 'Relay state is synchronized through Supabase; physical relay output is not acknowledged by the current firmware.'
-                   : selectedDevice
-                     ? 'Device service dashboard. Sample readings are shown until live hardware telemetry is connected.'
-                     : 'Select a saved device from My Devices to open its service dashboard.'}
+                {selectedDevice?.project === 'smart-security-system' || selectedDevice?.key === 'GKB-SEC-9988'
+                  ? 'Smart Home Security System dashboard. Multi-zone PIR motion detection with blinking red alarm strobe and audio alert buzzer.'
+                  : selectedDevice?.project === 'relay-test'
+                    ? 'Relay state is synchronized through Supabase; physical relay output is not acknowledged by the current firmware.'
+                    : selectedDevice
+                      ? 'Device service dashboard. Sample readings are shown until live hardware telemetry is connected.'
+                      : 'Select a saved device from My Devices to open its service dashboard.'}
               </p>
             </div>
 
@@ -3374,7 +4105,9 @@ export default function GKBSite() {
                   <ArrowRight className="h-4 w-4 rotate-180" />
                   Back to My Devices
                 </button>
-                {selectedDevice.project === 'fuel-tank-monitor'
+                {selectedDevice.project === 'smart-security-system' || selectedDevice.key === 'GKB-SEC-9988'
+                  ? <SmartHomeSecurityDashboard mode="service" device={selectedDevice} />
+                  : selectedDevice.project === 'fuel-tank-monitor'
                   ? <FuelTankMonitorDashboard mode="service" />
                   : selectedDevice.project === 'relay-test'
                     ? <RelayTestDashboard mode="service" />
