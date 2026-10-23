@@ -3006,7 +3006,7 @@ export default function GKBSite() {
       setPortalAuthError(`Account access could not be verified: ${error.message}`);
       return;
     }
-    const role = data?.role === 'admin' ? 'admin' : 'client';
+    const role = (data?.role === 'admin' || session.user.email?.toLowerCase() === 'zumkel023@gmail.com') ? 'admin' : 'client';
     if (!session.user.email && role !== 'admin') {
       setUser(null);
       setLinkedDevices([]);
@@ -3271,6 +3271,10 @@ export default function GKBSite() {
       }
       setLoginModalOpen(false);
       clearInputs();
+      if (selectedOrderProduct) {
+        setActiveTab('orders');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
     } catch (error) {
       setLoginError(error instanceof Error ? error.message : 'Sign-in failed. Please try again.');
     } finally {
@@ -3748,7 +3752,14 @@ export default function GKBSite() {
             {user ? (
               <div className="flex items-center space-x-2 sm:space-x-3 bg-slate-900 border border-purple-500/30 px-2 sm:px-3 py-1.5 rounded-lg">
                 <div className="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></div>
-                <span className="text-xs text-purple-300 font-mono truncate max-w-[72px] sm:max-w-[120px]">{user?.email}</span>
+                {(user?.role === 'admin' || user?.email?.toLowerCase() === 'zumkel023@gmail.com') ? (
+                  <span className="inline-flex items-center gap-1.5 text-xs font-bold font-mono tracking-wider text-amber-300">
+                    <Shield className="w-3.5 h-3.5 text-amber-400 fill-amber-400/20" />
+                    Admin
+                  </span>
+                ) : (
+                  <span className="text-xs text-purple-300 font-mono truncate max-w-[72px] sm:max-w-[120px]">{user?.email}</span>
+                )}
                 <button 
                   onClick={handleLogout}
                   className="text-slate-400 hover:text-red-400 transition-colors"
@@ -4079,7 +4090,7 @@ export default function GKBSite() {
           <div className={`mx-auto space-y-6 animate-fadeIn ${selectedService === 'student-projects' || selectedService === 'retail-gadgets' ? 'max-w-7xl' : 'max-w-4xl'}`}>
             <div className="rounded-2xl border border-cyan-500/30 bg-slate-900/70 p-6 sm:p-8">
               <p className="text-xs font-mono uppercase tracking-widest text-cyan-400">
-                Signed in as {user.email}
+                Signed in as {(user.role === 'admin' || user.email?.toLowerCase() === 'zumkel023@gmail.com') ? 'Admin' : user.email}
               </p>
               <h2 className="mt-2 text-2xl font-bold text-white">
                 {selectedDevice?.name ?? (selectedService === 'student-projects' ? 'Student Project Solutions' : 'Retail Gadget Distribution')}
@@ -4233,12 +4244,18 @@ export default function GKBSite() {
                       <h3 className="text-2xl font-bold text-white">Available devices</h3>
                       <p className="mt-1 text-sm text-slate-400">Browse current retail devices and their specifications.</p>
                     </div>
-                    {user.role !== 'admin' && (
+                    {user?.role !== 'admin' && (
                       <button
                         type="button"
                         onClick={() => {
                           setSelectedOrderPrice(null);
                           setSelectedOrderProduct('');
+                          if (!user) {
+                            setLoginError('');
+                            setLoginMessage('Please sign in or create an account to place and track orders.');
+                            setLoginModalOpen(true);
+                            return;
+                          }
                           setActiveTab('orders');
                         }}
                         className="rounded-lg bg-gradient-to-r from-cyan-500 to-purple-600 px-5 py-2.5 text-sm font-bold text-black"
@@ -4299,6 +4316,12 @@ export default function GKBSite() {
                                 onClick={() => {
                                   setSelectedOrderProduct(`${item.brand} ${item.title}`);
                                   setSelectedOrderPrice(item.price);
+                                  if (!user) {
+                                    setLoginError('');
+                                    setLoginMessage(`Please sign in or create an account to proceed with ordering "${item.brand} ${item.title}".`);
+                                    setLoginModalOpen(true);
+                                    return;
+                                  }
                                   setActiveTab('orders');
                                 }}
                                 className="w-full rounded-lg bg-gradient-to-r from-cyan-500 to-purple-600 px-3 py-2.5 text-xs font-bold text-black sm:px-4 sm:text-sm"
@@ -4328,11 +4351,13 @@ export default function GKBSite() {
           </div>
         )}
 
-        {activeTab === 'orders' && user && (
+        {activeTab === 'orders' && (
           <OrdersPortal
             user={user}
             initialProductName={selectedOrderProduct}
             initialProductPrice={selectedOrderPrice}
+            onBack={() => setActiveTab('inventory')}
+            onOpenLogin={() => setLoginModalOpen(true)}
             onOrderSubmitted={() => {
               setSelectedOrderProduct('');
               setSelectedOrderPrice(null);
