@@ -14,6 +14,6 @@ update public.gkb_device_telemetry
 set status = 'offline',
     connected = false,
     updated_at = now()
-where device_key in ('GKBSEC-00106', 'GKB-SEC-0001', 'GKB-SEC-9988');
+where device_key in ('GKBSEC-00106', 'GKB-RELAY-0001', 'GKB-SEC-9988');
 
 -- Done: All linked devices have been cleared from Supabase!
