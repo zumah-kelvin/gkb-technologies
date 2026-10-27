@@ -81,6 +81,10 @@ BEGIN
 END $$;
 
 -- 3. Seed initial records for fleet devices
+INSERT INTO public.light_control_status (device_id, channel_count, ch1, ch2)
+VALUES ('light_00', 2, false, false)
+ON CONFLICT (device_id) DO NOTHING;
+
 INSERT INTO public.light_control_status (device_id, channel_count, ch1, ch2, ch3, ch4)
 VALUES ('light_01', 4, false, false, false, false)
 ON CONFLICT (device_id) DO NOTHING;
@@ -134,8 +138,8 @@ CREATE POLICY light_control_update_policy
   ON public.light_control_status
   FOR UPDATE
   TO anon, authenticated
-  USING (device_id IN ('light_01', 'light_02', 'light_03'))
-  WITH CHECK (device_id IN ('light_01', 'light_02', 'light_03'));
+  USING (device_id IN ('light_00', 'light_01', 'light_02', 'light_03'))
+  WITH CHECK (device_id IN ('light_00', 'light_01', 'light_02', 'light_03'));
 
 -- 10. Trigger: Auto-update timestamp & enforce immutability of system columns
 CREATE OR REPLACE FUNCTION update_light_control_timestamp()
@@ -151,6 +155,8 @@ BEGIN
 
   -- Channel Boundary Enforcement:
   -- Ensure inactive channels beyond the hardware channel_count cannot be set to true
+  IF NEW.channel_count < 3 THEN NEW.ch3 = false; END IF;
+  IF NEW.channel_count < 4 THEN NEW.ch4 = false; END IF;
   IF NEW.channel_count < 5 THEN NEW.ch5 = false; END IF;
   IF NEW.channel_count < 6 THEN NEW.ch6 = false; END IF;
   IF NEW.channel_count < 7 THEN NEW.ch7 = false; END IF;
