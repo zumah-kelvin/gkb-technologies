@@ -10,6 +10,7 @@ CREATE TABLE IF NOT EXISTS public.water_tank_status (
   water_level INTEGER NOT NULL DEFAULT 68,
   distance_cm NUMERIC(6,2) NOT NULL DEFAULT 32.00,
   tank_height_cm NUMERIC(6,2) NOT NULL DEFAULT 100.00,
+  tank_circumference_cm NUMERIC(6,2) NOT NULL DEFAULT 314.16,
   min_distance_cm NUMERIC(6,2) NOT NULL DEFAULT 20.00,
   pump_state TEXT NOT NULL DEFAULT 'OFF' CHECK (pump_state IN ('ON', 'OFF')),
   pump_mode TEXT NOT NULL DEFAULT 'AUTO' CHECK (pump_mode IN ('AUTO', 'MANUAL')),
@@ -21,6 +22,10 @@ CREATE TABLE IF NOT EXISTS public.water_tank_status (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now())
 );
 
+-- Backward compatibility: add tank_circumference_cm if table already exists
+ALTER TABLE public.water_tank_status 
+  ADD COLUMN IF NOT EXISTS tank_circumference_cm NUMERIC(6,2) DEFAULT 314.16;
+
 -- 2. Seed initial primary fleet record: water_01
 INSERT INTO public.water_tank_status (
   device_id,
@@ -28,6 +33,7 @@ INSERT INTO public.water_tank_status (
   water_level,
   distance_cm,
   tank_height_cm,
+  tank_circumference_cm,
   min_distance_cm,
   pump_state,
   pump_mode,
@@ -42,6 +48,7 @@ VALUES (
   68,
   32.00,
   100.00,
+  314.16,
   20.00,
   'OFF',
   'AUTO',
