@@ -1,6 +1,6 @@
 /**
  * GKB Technologies — Zero-Dependency QR Code Generator (Type 1-4, ECC Level M/L)
- * Generates an SVG or 2D boolean matrix for any device key (e.g. GKBSEC-00106).
+ * Generates an SVG or 2D boolean matrix for any device key (e.g. GKB-SEC-0001).
  */
 
 export function createQrSvg(text: string, size: number = 200): string {

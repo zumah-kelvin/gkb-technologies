@@ -129,7 +129,7 @@ function InventoryHighlights({ text }: { text: string }) {
 }
 
 const defaultDevices: Device[] = [
-  { id: 1, name: 'Smart Home Security System v1', key: 'GKBSEC-00106', status: 'Online', lastAlert: 'Armed · PIR motion active (GPIO 15)', project: 'smart-security-system' },
+  { id: 1, name: 'Smart Home Security System v1', key: 'GKB-SEC-0001', status: 'Online', lastAlert: 'Armed · PIR motion active (GPIO 15)', project: 'smart-security-system' },
   { id: 2, name: 'Smart Water Tank Monitor', key: 'GKB-SWP-0001', legacyKeys: ['GKB-WTR-4412'], status: 'Online', lastAlert: 'Water level stable at 68%', project: 'water-tank-monitor' },
   { id: 3, name: 'Industrial Fuel Tank Monitor', key: 'GKB-IUFT-0001', status: 'Online', lastAlert: 'Fuel level stable at 72%', project: 'fuel-tank-monitor' },
   { id: 4, name: 'GKB Smart Prepaid Energy Meter', key: 'GKB-SPEM-0001', status: 'Online', lastAlert: 'Meter secure · balance GHS 24.50', project: 'prepaid-energy-meter' },
@@ -2462,7 +2462,7 @@ function SmartHomeSecurityDashboard({ mode, device }: { mode: 'test' | 'service'
               {mode === 'test' ? 'Private device test preview' : 'Service portal'}
             </span>
             <span className="rounded-full border border-purple-400/30 bg-purple-400/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-purple-300">
-              Key: {device?.key ?? 'GKB-SEC-9988'}
+              Key: {device?.key ?? 'GKB-SEC-0001'}
             </span>
             <span className={`rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider ${
               armedMode === 'away' ? 'border-red-500/40 bg-red-500/20 text-red-300' : armedMode === 'stay' ? 'border-amber-500/40 bg-amber-500/20 text-amber-300' : 'border-slate-600 bg-slate-800 text-slate-400'
@@ -4105,7 +4105,7 @@ export default function GKBSite() {
               <ArrowRight className="h-4 w-4 rotate-180" />
               Back to My Devices
             </button>
-            {testDevice.project === 'smart-security-system' || testDevice.key === 'GKBSEC-00106'
+            {testDevice.project === 'smart-security-system' || testDevice.key === 'GKB-SEC-0001'
               ? <SmartHomeSecurityDashboard mode="test" device={testDevice} />
               : testDevice.project === 'fuel-tank-monitor'
               ? <FuelTankMonitorDashboard mode="test" />
@@ -4136,7 +4136,7 @@ export default function GKBSite() {
                 {selectedDevice?.name ?? (selectedService === 'student-projects' ? 'Student Project Solutions' : 'Retail Gadget Distribution')}
               </h2>
               <p className="mt-2 text-sm text-slate-300">
-                {selectedDevice?.project === 'smart-security-system' || selectedDevice?.key === 'GKBSEC-00106'
+                {selectedDevice?.project === 'smart-security-system' || selectedDevice?.key === 'GKB-SEC-0001'
                   ? 'Smart Home Security System dashboard. Multi-zone PIR motion detection with blinking red alarm strobe and audio alert buzzer.'
                   : selectedDevice?.project === 'relay-test'
                     ? 'Relay state is synchronized through Supabase; physical relay output is not acknowledged by the current firmware.'
@@ -4156,7 +4156,7 @@ export default function GKBSite() {
                   <ArrowRight className="h-4 w-4 rotate-180" />
                   Back to My Devices
                 </button>
-                {selectedDevice.project === 'smart-security-system' || selectedDevice.key === 'GKBSEC-00106'
+                {selectedDevice.project === 'smart-security-system' || selectedDevice.key === 'GKB-SEC-0001'
                   ? <SmartHomeSecurityDashboard mode="service" device={selectedDevice} />
                   : selectedDevice.project === 'fuel-tank-monitor'
                   ? <FuelTankMonitorDashboard mode="service" />

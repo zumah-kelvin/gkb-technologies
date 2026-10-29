@@ -78,7 +78,7 @@ Sign in to the portal and open **My Devices**:
 
 | Device | Special key | Dashboard |
 | --- | --- | --- |
-| Smart Home Security System v1 | `GKB-SEC-9988` | Smart Home Security System |
+| Smart Home Security System v1 | `GKB-SEC-0001` | Smart Home Security System |
 | Smart Water Tank Monitor | `GKB-SWP-0001` | Smart Water Tank System |
 | Industrial Fuel Tank Monitor | `GKB-IUFT-0001` | Underground Fuel Tank Monitor |
 | GKB Smart Prepaid Energy Meter | `GKB-SPEM-0001` | Prepaid Energy Meter |
@@ -94,7 +94,7 @@ The previous combined fan/light demo key `GKB-SFLC-0001` remains accepted as an 
 
 ## Smart home security system demo
 
-The Smart Home Security System (`GKB-SEC-9988`) preview features multi-zone PIR motion monitoring with real-time audio-visual intrusion alert feedback:
+The Smart Home Security System (`GKB-SEC-0001`) preview features multi-zone PIR motion monitoring with real-time audio-visual intrusion alert feedback:
 - **Blinking Red Background**: Triggers an intense red strobe animation across the dashboard with pulsating glow borders when motion is detected in any armed zone.
 - **Buzzing Background Sound**: Synthesizes a 165Hz electronic security alarm buzzer with 10Hz LFO pulse gating via the browser's native Web Audio API. A dedicated audio control allows toggling between active buzzer and muted mode.
 - **Interactive Multi-Zone Sensor Grid**: Test, trip, or clear motion across 4 individual zones (Living Room PIR, Main Entrance door reed contact, Kitchen window vibration, Patio infrared barrier).
