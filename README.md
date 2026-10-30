@@ -82,7 +82,6 @@ Sign in to the portal and open **My Devices**:
 | Smart Water Tank Monitor | `GKB-SWP-0001` | Smart Water Tank System |
 | Industrial Fuel Tank Monitor | `GKB-IUFT-0001` | Underground Fuel Tank Monitor |
 | GKB Smart Prepaid Energy Meter | `GKB-SPEM-0001` | Prepaid Energy Meter |
-| Smart Alcohol Breathalyzer System | `GKB-SAB-0001` | Alcohol Breathalyzer |
 | Smart Fan Regulator | `GKB-FAN-0001` | Fan Regulator |
 | Smart Light Control System v1 (4-channel) | `GKB-LIGHT-0001V1` | 4-light Control |
 | Smart Light Control System v2 (6-channel) | `GKB-LIGHT-0001V2` | 6-light Control |

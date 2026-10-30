@@ -133,7 +133,6 @@ const defaultDevices: Device[] = [
   { id: 2, name: 'Smart Water Tank Monitor', key: 'GKB-SWP-0001', legacyKeys: ['GKB-WTR-4412'], status: 'Online', lastAlert: 'Water level stable at 68%', project: 'water-tank-monitor' },
   { id: 3, name: 'Industrial Fuel Tank Monitor', key: 'GKB-IUFT-0001', status: 'Online', lastAlert: 'Fuel level stable at 72%', project: 'fuel-tank-monitor' },
   { id: 4, name: 'GKB Smart Prepaid Energy Meter', key: 'GKB-SPEM-0001', status: 'Online', lastAlert: 'Meter secure · balance GHS 24.50', project: 'prepaid-energy-meter' },
-  { id: 5, name: 'Smart Alcohol Breathalyzer System', key: 'GKB-SAB-0001', status: 'Online', lastAlert: 'Alcohol level clear · demo', project: 'alcohol-breathalyzer' },
   { id: 6, name: 'Smart Fan Regulator', key: 'GKB-FAN-0001', legacyKeys: ['GKB-SFLC-0001'], status: 'Online', lastAlert: 'Fan off · all speed relays open · demo', project: 'fan-regulator' },
   { id: 7, name: 'Smart Light Control System v1 · 4-channel', key: 'GKB-LIGHT-0001V1', legacyKeys: ['GKB-LIGHTV1-0001', 'GKB-LIGHT-0001'], status: 'Online', lastAlert: 'All 4 lights off · demo', project: 'light-control', relayChannels: 4 },
   { id: 8, name: 'Smart Light Control System v2 · 6-channel', key: 'GKB-LIGHT-0001V2', legacyKeys: ['GKB-LIGHTV2-0001'], status: 'Online', lastAlert: 'All 6 lights off · demo', project: 'light-control', relayChannels: 6 },
