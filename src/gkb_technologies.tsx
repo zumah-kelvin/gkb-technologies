@@ -4520,7 +4520,7 @@ export default function GKBSite() {
                 </h3>
                 <div className="space-y-2 text-sm">
                   <div className="p-3 rounded-lg bg-slate-950 border border-slate-800 flex items-center justify-between">
-                    <span className="text-slate-400 font-mono">+233 552117787</span>
+                    <a href="tel:+233552117787" className="text-slate-300 font-mono hover:text-cyan-400 transition-colors cursor-pointer">+233 552117787 (Call)</a>
                     <span className="text-xs text-cyan-400 font-bold">Primary</span>
                   </div>
                   <div className="p-3 rounded-lg bg-slate-950 border border-slate-800 flex items-center justify-between">
@@ -4531,12 +4531,12 @@ export default function GKBSite() {
 
                 <div className="pt-2">
                   <a 
-                    href="https://wa.me/233536820868" 
+                    href="https://wa.me/233552117787" 
                     target="_blank" 
                     rel="noreferrer"
                     className="w-full py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm flex items-center justify-center space-x-2 shadow-[0_0_15px_rgba(16,185,129,0.3)] transition-all"
                   >
-                    <span>Chat on WhatsApp (+233 536820868)</span>
+                    <span>Chat on WhatsApp (+233 552 117 787)</span>
                   </a>
                 </div>
               </div>
@@ -4554,11 +4554,11 @@ export default function GKBSite() {
                   </div>
                   <div className="p-3 rounded-lg bg-slate-950 border border-slate-800 flex items-center space-x-3">
                     <Camera className="w-4 h-4 text-pink-400" />
-                    <span className="text-slate-300 font-mono text-xs">Instagram: @gkb_technologies</span>
+                    <a href="https://instagram.com/gkb_technologies" target="_blank" rel="noreferrer" className="text-slate-300 font-mono text-xs hover:text-pink-400 transition-colors cursor-pointer">Instagram: @gkb_technologies</a>
                   </div>
                   <div className="p-3 rounded-lg bg-slate-950 border border-slate-800 flex items-center space-x-3">
                     <Terminal className="w-4 h-4 text-cyan-400" />
-                    <span className="text-slate-300 font-mono text-xs">TikTok: @gkbtech</span>
+                    <a href="https://www.tiktok.com/@gkbtech" target="_blank" rel="noreferrer" className="text-slate-300 font-mono text-xs hover:text-cyan-400 transition-colors cursor-pointer">TikTok: @gkbtech</a>
                   </div>
                 </div>
               </div>
